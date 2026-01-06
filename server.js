@@ -127,8 +127,16 @@ app.post('/document/send', async (req, res) => {
 
         doc.render();
 
-        const buffer = doc.getZip().generate({ type: 'nodebuffer' });
-        await fs.writeFile(originalDocxPath, buffer);
+        // const buffer = doc.getZip().generate({ type: 'nodebuffer' });
+        // await fs.writeFile(originalDocxPath, buffer);
+
+        const buffer = doc.getZip().generate({
+  type: "nodebuffer",
+  compression: "DEFLATE",
+});
+
+
+const fileName = await uploadDoc(buffer, docId);
 
         // ✅ Store BOTH the path AND the form data
         documentStore[docId] = {

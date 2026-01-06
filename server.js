@@ -511,7 +511,7 @@ app.post("/document/finalize/:docId", async (req, res) => {
       type: "nodebuffer",
       compression: "DEFLATE",
     });
-
+///
     // 4️⃣ Upload signed DOCX to Supabase
     const signedFileName = `${req.params.docId}-signed.docx`;
 

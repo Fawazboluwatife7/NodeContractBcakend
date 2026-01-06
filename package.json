@@ -1,0 +1,32 @@
+{
+  "name": "nodebackend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.89.0",
+    "@vercel/kv": "^3.0.0",
+    "body-parser": "^2.2.1",
+    "cors": "^2.8.5",
+    "docusign-esign": "^8.5.0",
+    "docx-pdf": "^0.0.1",
+    "docxtemplater": "^3.67.6",
+    "docxtemplater-image-module": "^3.1.0",
+    "docxtemplater-image-module-free": "^1.1.1",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "libreoffice-convert": "^1.7.0",
+    "mongodb": "^7.0.0",
+    "mongoose": "^9.1.2",
+    "pdf-lib": "^1.17.1",
+    "pizzip": "^3.2.0",
+    "uuid": "^13.0.0"
+  }
+}

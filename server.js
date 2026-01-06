@@ -28,9 +28,9 @@ const FRONTEND_PORT = '5174';
 
 // server.js
 const corsOptions = {
-  origin: "http://localhost:5174",
+  origin: "https://leadway-sales-transformation-team.vercel.app/",
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-  credentials: false, // IMPORTANT FOR PDF FETCH (should be false)
+  credentials: false, 
   allowedHeaders: ["Content-Type"]
 };
 

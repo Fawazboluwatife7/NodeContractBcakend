@@ -28,7 +28,7 @@ const FRONTEND_PORT = '5174';
 
 // server.js
 const corsOptions = {
-  origin: "https://leadway-sales-transformation-team.vercel.app",
+  origin: "*",
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: false, 
   allowedHeaders: ["Content-Type"]
@@ -126,17 +126,19 @@ app.post('/document/send', async (req, res) => {
         });
 
         doc.render();
-
-        // const buffer = doc.getZip().generate({ type: 'nodebuffer' });
-        // await fs.writeFile(originalDocxPath, buffer);
-
-        const buffer = doc.getZip().generate({
+const buffer = doc.getZip().generate({
   type: "nodebuffer",
   compression: "DEFLATE",
 });
 
-
+// ✅ Now buffer exists
 const fileName = await uploadDoc(buffer, docId);
+        
+
+        // const buffer = doc.getZip().generate({ type: 'nodebuffer' });
+        // await fs.writeFile(originalDocxPath, buffer);
+
+        
 
         // ✅ Store BOTH the path AND the form data
         documentStore[docId] = {

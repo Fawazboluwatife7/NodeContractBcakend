@@ -134,7 +134,7 @@ const buffer = doc.getZip().generate({
 // ✅ Now buffer exists
 const fileName = await uploadDoc(buffer, docId);
         
-
+console.log("Plans received:")
         // const buffer = doc.getZip().generate({ type: 'nodebuffer' });
         // await fs.writeFile(originalDocxPath, buffer);
 

@@ -28,7 +28,7 @@ const FRONTEND_PORT = '5174';
 
 // server.js
 const corsOptions = {
-  origin: "*",
+  origin: "https://leaway-sales-transformation-team.vercel.app",
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: false, 
   allowedHeaders: ["Content-Type"]
@@ -134,7 +134,7 @@ const buffer = doc.getZip().generate({
 // ✅ Now buffer exists
 const fileName = await uploadDoc(buffer, docId);
         
-console.log("Pxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxffff:")
+
         // const buffer = doc.getZip().generate({ type: 'nodebuffer' });
         // await fs.writeFile(originalDocxPath, buffer);
 

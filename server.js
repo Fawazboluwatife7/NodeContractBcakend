@@ -92,79 +92,115 @@ const imageOptions = {
 
 
 
+// app.post('/document/send', async (req, res) => {
+//     console.log("Plans received:", req.body.formData.selectedPlans);
+//     const docId = uuidv4();
+//    const fileName = await uploadDoc(buffer, docId);
+
+//     const { formData } = req.body;
+
+//     if (!formData) {
+//         return res.status(400).json({ error: 'Missing formData' });
+//     }
+
+//     try {
+//         const content = await fs.readFile(path.join(__dirname, 'template.docx'), 'binary');
+//         const zip = new PizZip(content);
+        
+//         const imageModule = new ImageModule(imageOptions);
+//        const doc = new Docxtemplater(zip, {
+//             modules: [imageModule], // ✅ Add this
+//             paragraphLoop: true,
+//             linebreaks: true,
+            
+//             nullGetter: () => "" 
+//         });
+
+//         const benefitsTable = buildBenefitsTable(formData);
+//         const benefitsTableTwo = buildBenefitsTableTwo(formData);
+
+//         // ✅ Generate document with all data EXCEPT signature
+//         doc.setData({
+//             ...formData,
+//             startDateFormatted: formatAgreementDate(formData.startDate),
+//             endDateFormatted: formatAgreementDate(formData.endDate),
+//             ...benefitsTable,
+//             ...benefitsTableTwo,
+//            signature_left: "",  
+//             signature_right: ""  
+//         });
+
+//         doc.render();
+// const buffer = doc.getZip().generate({
+//   type: "nodebuffer",
+//   compression: "DEFLATE",
+// });
+
+// // ✅ Now buffer exists
+// const fileName = await uploadDoc(buffer, docId);
+        
+
+//         // const buffer = doc.getZip().generate({ type: 'nodebuffer' });
+//         // await fs.writeFile(originalDocxPath, buffer);
+
+        
+
+//         // ✅ Store BOTH the path AND the form data
+//         documentStore[docId] = {
+//             status: 'pending',
+//             fileName,
+//             clientEmail: formData.groupContactPersonEmail,
+//             formData: formData, // ✅ Store original form data for regeneration
+//             benefitsTable: benefitsTable, // ✅ Store computed tables too
+//             benefitsTableTwo: benefitsTableTwo,
+//         };
+
+//         const signingLink = `http://localhost:${FRONTEND_PORT}/sign/${docId}`;
+//         await sendEmailWithSigningLink(formData, signingLink);
+
+//         res.status(200).json({ message: 'Word document generated and link sent.' });
+//     } catch (error) {
+//         console.error("Error in /document/send:", error);
+//         res.status(500).json({ error: 'Failed to generate Word doc: ' + error.message });
+//     }
+// });
+
+
 app.post('/document/send', async (req, res) => {
-    console.log("Plans received:", req.body.formData.selectedPlans);
-    const docId = uuidv4();
-   const fileName = await uploadDoc(buffer, docId);
-
-    const { formData } = req.body;
-
-    if (!formData) {
-        return res.status(400).json({ error: 'Missing formData' });
-    }
+    console.log("📥 Request received at /document/send"); // Log this first!
 
     try {
+        const { formData } = req.body;
+        if (!formData) return res.status(400).json({ error: 'No data' });
+
+        const docId = uuidv4();
+        
+        // 1. Prepare Docxtemplater
         const content = await fs.readFile(path.join(__dirname, 'template.docx'), 'binary');
         const zip = new PizZip(content);
-        
-        const imageModule = new ImageModule(imageOptions);
-       const doc = new Docxtemplater(zip, {
-            modules: [imageModule], // ✅ Add this
-            paragraphLoop: true,
-            linebreaks: true,
-            
-            nullGetter: () => "" 
-        });
+        const doc = new Docxtemplater(zip, { /* your config */ });
 
-        const benefitsTable = buildBenefitsTable(formData);
-        const benefitsTableTwo = buildBenefitsTableTwo(formData);
-
-        // ✅ Generate document with all data EXCEPT signature
-        doc.setData({
-            ...formData,
-            startDateFormatted: formatAgreementDate(formData.startDate),
-            endDateFormatted: formatAgreementDate(formData.endDate),
-            ...benefitsTable,
-            ...benefitsTableTwo,
-           signature_left: "",  
-            signature_right: ""  
-        });
-
+        // 2. Set Data and Render
+        doc.setData({ ...formData });
         doc.render();
-const buffer = doc.getZip().generate({
-  type: "nodebuffer",
-  compression: "DEFLATE",
-});
 
-// ✅ Now buffer exists
-const fileName = await uploadDoc(buffer, docId);
-        
+        // 3. GENERATE BUFFER FIRST
+        const buffer = doc.getZip().generate({
+            type: "nodebuffer",
+            compression: "DEFLATE",
+        });
 
-        // const buffer = doc.getZip().generate({ type: 'nodebuffer' });
-        // await fs.writeFile(originalDocxPath, buffer);
+        // 4. NOW UPLOAD
+        const fileName = await uploadDoc(buffer, docId); 
 
-        
+        // ... rest of your email logic ...
 
-        // ✅ Store BOTH the path AND the form data
-        documentStore[docId] = {
-            status: 'pending',
-            fileName,
-            clientEmail: formData.groupContactPersonEmail,
-            formData: formData, // ✅ Store original form data for regeneration
-            benefitsTable: benefitsTable, // ✅ Store computed tables too
-            benefitsTableTwo: benefitsTableTwo,
-        };
-
-        const signingLink = `http://localhost:${FRONTEND_PORT}/sign/${docId}`;
-        await sendEmailWithSigningLink(formData, signingLink);
-
-        res.status(200).json({ message: 'Word document generated and link sent.' });
+        res.status(200).json({ message: 'Success' });
     } catch (error) {
-        console.error("Error in /document/send:", error);
-        res.status(500).json({ error: 'Failed to generate Word doc: ' + error.message });
+        console.error("❌ CRASH:", error);
+        res.status(500).json({ error: error.message });
     }
 });
-
 app.post('/document/get', async (req, res) => {
     console.log("Plans received:");
     console.log("Plans received:");

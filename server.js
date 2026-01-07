@@ -35,6 +35,8 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions)); 
+app.use(express.json());         // 2. Parse JSON bodies
+app.use(express.urlencoded({ extended: true })); 
 // ...
 app.use(bodyParser.json({ limit: '50mb' }));
 

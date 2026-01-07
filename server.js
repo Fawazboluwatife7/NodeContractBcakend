@@ -20,7 +20,7 @@ const PizZip = require("pizzip");
 const docxToPdf = require('docx-pdf');
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT 
 const DOCUMENTS_PATH = path.join(__dirname, 'documents');
 const ImageModule = require("docxtemplater-image-module-free");
 // Use the exact port for your React frontend (e.g., 5174 for Vite)
@@ -569,8 +569,12 @@ app.post("/document/finalize/:docId", async (req, res) => {
   }
 });
 
+// app.listen(PORT, () => {
+//     console.log(`Backend server running on http://localhost:${PORT}`);
+// });
+
 app.listen(PORT, () => {
-    console.log(`Backend server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
 
 

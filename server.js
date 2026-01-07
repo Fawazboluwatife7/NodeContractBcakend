@@ -87,14 +87,88 @@ const imageOptions = {
 
 
 
-app.post('/document/send', async (req, res) => {
-    console.log("Plans received:", req.body.formData.selectedPlans);
-    const docId = uuidv4();
-   const fileName = await uploadDoc(buffer, docId);
+// app.post('/document/send', async (req, res) => {
+//     console.log("Plans received:", req.body.formData.selectedPlans);
+//     const docId = uuidv4();
+//    const fileName = await uploadDoc(buffer, docId);
 
+//     const { formData } = req.body;
+
+//     if (!formData) {
+//         return res.status(400).json({ error: 'Missing formData' });
+//     }
+
+//     try {
+//         const content = await fs.readFile(path.join(__dirname, 'template.docx'), 'binary');
+//         const zip = new PizZip(content);
+        
+//         const imageModule = new ImageModule(imageOptions);
+//        const doc = new Docxtemplater(zip, {
+//             modules: [imageModule], // ✅ Add this
+//             paragraphLoop: true,
+//             linebreaks: true,
+            
+//             nullGetter: () => "" 
+//         });
+
+//         const benefitsTable = buildBenefitsTable(formData);
+//         const benefitsTableTwo = buildBenefitsTableTwo(formData);
+
+//         // ✅ Generate document with all data EXCEPT signature
+//         doc.setData({
+//             ...formData,
+//             startDateFormatted: formatAgreementDate(formData.startDate),
+//             endDateFormatted: formatAgreementDate(formData.endDate),
+//             ...benefitsTable,
+//             ...benefitsTableTwo,
+//            signature_left: "",  
+//             signature_right: ""  
+//         });
+
+//         doc.render();
+// const buffer = doc.getZip().generate({
+//   type: "nodebuffer",
+//   compression: "DEFLATE",
+// });
+
+// // ✅ Now buffer exists
+// const fileName = await uploadDoc(buffer, docId);
+        
+
+//         // const buffer = doc.getZip().generate({ type: 'nodebuffer' });
+//         // await fs.writeFile(originalDocxPath, buffer);
+
+        
+
+//         // ✅ Store BOTH the path AND the form data
+//         documentStore[docId] = {
+//             status: 'pending',
+//             fileName,
+//             clientEmail: formData.groupContactPersonEmail,
+//             formData: formData, // ✅ Store original form data for regeneration
+//             benefitsTable: benefitsTable, // ✅ Store computed tables too
+//             benefitsTableTwo: benefitsTableTwo,
+//         };
+
+//         const signingLink = `http://localhost:${FRONTEND_PORT}/sign/${docId}`;
+//         await sendEmailWithSigningLink(formData, signingLink);
+
+//         res.status(200).json({ message: 'Word document generated and link sent.' });
+//     } catch (error) {
+//         console.error("Error in /document/send:", error);
+//         res.status(500).json({ error: 'Failed to generate Word doc: ' + error.message });
+//     }
+// });
+
+app.post('/document/send', async (req, res) => {
+    console.log("🔥 /document/send endpoint hit!");
+    console.log("Plans received:", req.body.formData?.selectedPlans);
+    
+    const docId = uuidv4();
     const { formData } = req.body;
 
     if (!formData) {
+        console.log("❌ Missing formData");
         return res.status(400).json({ error: 'Missing formData' });
     }
 
@@ -103,11 +177,10 @@ app.post('/document/send', async (req, res) => {
         const zip = new PizZip(content);
         
         const imageModule = new ImageModule(imageOptions);
-       const doc = new Docxtemplater(zip, {
-            modules: [imageModule], // ✅ Add this
+        const doc = new Docxtemplater(zip, {
+            modules: [imageModule],
             paragraphLoop: true,
             linebreaks: true,
-            
             nullGetter: () => "" 
         });
 
@@ -121,45 +194,45 @@ app.post('/document/send', async (req, res) => {
             endDateFormatted: formatAgreementDate(formData.endDate),
             ...benefitsTable,
             ...benefitsTableTwo,
-           signature_left: "",  
+            signature_left: "",  
             signature_right: ""  
         });
 
         doc.render();
-const buffer = doc.getZip().generate({
-  type: "nodebuffer",
-  compression: "DEFLATE",
-});
-
-// ✅ Now buffer exists
-const fileName = await uploadDoc(buffer, docId);
         
+        // ✅ Generate buffer FIRST
+        const buffer = doc.getZip().generate({
+            type: "nodebuffer",
+            compression: "DEFLATE",
+        });
 
-        // const buffer = doc.getZip().generate({ type: 'nodebuffer' });
-        // await fs.writeFile(originalDocxPath, buffer);
-
+        // ✅ THEN use buffer to upload
+        const fileName = await uploadDoc(buffer, docId);
         
+        console.log("✅ Document uploaded:", fileName);
 
         // ✅ Store BOTH the path AND the form data
         documentStore[docId] = {
             status: 'pending',
             fileName,
             clientEmail: formData.groupContactPersonEmail,
-            formData: formData, // ✅ Store original form data for regeneration
-            benefitsTable: benefitsTable, // ✅ Store computed tables too
+            formData: formData,
+            benefitsTable: benefitsTable,
             benefitsTableTwo: benefitsTableTwo,
         };
 
         const signingLink = `http://localhost:${FRONTEND_PORT}/sign/${docId}`;
         await sendEmailWithSigningLink(formData, signingLink);
 
+        console.log("✅ Email sent successfully");
         res.status(200).json({ message: 'Word document generated and link sent.' });
+        
     } catch (error) {
-        console.error("Error in /document/send:", error);
+        console.error("❌ Error in /document/send:", error);
+        console.error("Error stack:", error.stack);
         res.status(500).json({ error: 'Failed to generate Word doc: ' + error.message });
     }
 });
-
 
   const buildBenefitsTable = (formData) => {
     const { selectedPlans = [], tableData = [] } = formData;

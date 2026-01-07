@@ -31,13 +31,13 @@ const FRONTEND_PORT = '5174';
 
 // server.js
 const corsOptions = {
-  origin: "https://leadway-sales-transformation-team.vercel.app",
+  origin: "https://leadway-sales-transformation-team.vercel.app/standardcontract",
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: false, 
   allowedHeaders: ["Content-Type"]
 };
 
-app.use(cors()); 
+app.use(cors(corsOptions)); 
 app.use(express.json());         // 2. Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); 
 // ...

@@ -28,7 +28,7 @@ const FRONTEND_PORT = '5174';
 
 // server.js
 const corsOptions = {
-  origin: "https://leaway-sales-transformation-team.vercel.app",
+  origin: "https://leadway-sales-transformation-team.vercel.app",
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: false, 
   allowedHeaders: ["Content-Type"]

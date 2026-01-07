@@ -160,6 +160,11 @@ const fileName = await uploadDoc(buffer, docId);
     }
 });
 
+app.post('/document/get', async (req, res) => {
+    console.log("Plans received:");
+    console.log("Plans received:");
+    
+});
 
   const buildBenefitsTable = (formData) => {
     const { selectedPlans = [], tableData = [] } = formData;

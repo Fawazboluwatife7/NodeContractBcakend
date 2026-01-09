@@ -2,13 +2,14 @@ console.log("🔥 SERVER FILE LOADED 🔥");
 
 require("dotenv").config(); 
 
-const uploadDoc = require("./uploadDoc");
+const { uploadDoc } = require("./uploadDoc");
+
 const downloadDoc = require("./downloadDoc");
 
 
 const connectDB = require("./db");
 
-connectDB();                     
+                     
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -17,15 +18,17 @@ const fs = require('fs').promises;
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
-// --- DOCXTEMPLATER IMPORTS ---
+
+
+
 const Docxtemplater = require("docxtemplater");
 const PizZip = require("pizzip");
-const docxToPdf = require('docx-pdf');
+const ImageModule = require("docxtemplater-image-module-free");
 
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3001;
 const DOCUMENTS_PATH = path.join(__dirname, 'documents');
-const ImageModule = require("docxtemplater-image-module-free");
+
 // Use the exact port for your React frontend (e.g., 5174 for Vite)
 const FRONTEND_PORT = '5174'; 
 
@@ -38,6 +41,8 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"]
 };
 
+app.use(bodyParser.json({ limit: "10mb" }));
+app.use(bodyParser.urlencoded({ limit: "10mb", extended: true }));
 app.use(cors(corsOptions));
 app.use(express.json());         // 2. Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); 
@@ -57,41 +62,138 @@ const documentStore = {};
 })();
 
 const imageOptions = {
-    getImage: (tagValue) => {
-        console.log("=== IMAGE MODULE CALLED ===");
-        console.log("Tag value type:", typeof tagValue);
-        console.log("Tag value length:", tagValue ? tagValue.length : 0);
-        console.log("First 50 chars:", tagValue ? tagValue.substring(0, 50) : "null");
-        
-        try {
-            // Handle data URL format (data:image/png;base64,...)
-            if (tagValue.startsWith('data:')) {
-                const base64Data = tagValue.split(',')[1];
-                console.log("Extracted base64 length:", base64Data.length);
-                const buffer = Buffer.from(base64Data, 'base64');
-                console.log("Buffer created, size:", buffer.length);
-                return buffer;
-            }
-            
-            // Handle raw base64
-            const buffer = Buffer.from(tagValue, 'base64');
-            console.log("Buffer created from raw base64, size:", buffer.length);
-            return buffer;
-        } catch (err) {
-            console.error("Error processing image:", err);
-            throw err;
-        }
-    },
-    getSize: (img, tagValue, tagName) => {
-        console.log("getSize called for tag:", tagName);
-        // Return [width, height] in pixels
-        return [200, 80];
-    },
-    // ✅ IMPORTANT: Add centered option
-    centered: false,
+  getImage: (tagValue) => {
+    if (!tagValue) return null;
+
+    const base64 = tagValue.replace(/^data:image\/\w+;base64,/, "");
+    return Buffer.from(base64, "base64");
+  },
+
+  getSize: () => [150, 50], // adjust if needed
 };
 
 
+const imageModule = new ImageModule(imageOptions);
+
+// const imageOptions = {
+//     getImage: (tagValue) => {
+//         console.log("=== IMAGE MODULE CALLED ===");
+//         console.log("Tag value type:", typeof tagValue);
+//         console.log("Tag value length:", tagValue ? tagValue.length : 0);
+//         console.log("First 50 chars:", tagValue ? tagValue.substring(0, 50) : "null");
+        
+//         try {
+//             // Handle data URL format (data:image/png;base64,...)
+//             if (tagValue.startsWith('data:')) {
+//                 const base64Data = tagValue.split(',')[1];
+//                 console.log("Extracted base64 length:", base64Data.length);
+//                 const buffer = Buffer.from(base64Data, 'base64');
+//                 console.log("Buffer created, size:", buffer.length);
+//                 return buffer;
+//             }
+            
+//             // Handle raw base64
+//             const buffer = Buffer.from(tagValue, 'base64');
+//             console.log("Buffer created from raw base64, size:", buffer.length);
+//             return buffer;
+//         } catch (err) {
+//             console.error("Error processing image:", err);
+//             throw err;
+//         }
+//     },
+//     getSize: (img, tagValue, tagName) => {
+//         console.log("getSize called for tag:", tagName);
+//         // Return [width, height] in pixels
+//         return [200, 80];
+//     },
+//     // ✅ IMPORTANT: Add centered option
+//     centered: false,
+// };
+
+
+app.post("/document/send", async (req, res) => {
+  try {
+    const { formData } = req.body;
+
+    if (!formData) {
+      return res.status(400).json({ error: "Missing formData" });
+    }
+
+    console.log("Plans received:", formData.selectedPlans);
+
+    const docId = uuidv4();
+
+    // 1️⃣ Load template
+    const content = await fs.readFile(
+      path.join(__dirname, "template.docx"),
+      "binary"
+    );
+
+    const zip = new PizZip(content);
+
+  const imageModule = new ImageModule(imageOptions);
+
+const doc = new Docxtemplater(zip, {
+  modules: [imageModule],
+  paragraphLoop: true,
+  linebreaks: true,
+  nullGetter: () => "",
+});
+
+    // 2️⃣ Build computed tables
+    const benefitsTable = buildBenefitsTable(formData);
+    const benefitsTableTwo = buildBenefitsTableTwo(formData);
+
+    // 3️⃣ Inject data
+    doc.setData({
+      ...formData,
+      startDateFormatted: formatAgreementDate(formData.startDate),
+      endDateFormatted: formatAgreementDate(formData.endDate),
+      ...benefitsTable,
+      ...benefitsTableTwo,
+      signature_left: "",
+      signature_right: "",
+    });
+
+    doc.render();
+
+    // 4️⃣ Generate buffer (NOW it exists)
+    const buffer = doc.getZip().generate({
+      type: "nodebuffer",
+      compression: "DEFLATE",
+    });
+
+    // 5️⃣ Upload to Supabase
+    const fileName = await uploadDoc(buffer, docId);
+
+    // 6️⃣ Store metadata
+    documentStore[docId] = {
+      status: "pending",
+      fileName,
+      clientEmail: formData.groupContactPersonEmail,
+      formData,
+      benefitsTable,
+      benefitsTableTwo,
+    };
+
+    // 7️⃣ Send email
+    const signingLink =
+      "https://leadway-sales-transformation-team.vercel.app/sign/" + docId;
+
+    await sendEmailWithSigningLink(formData, signingLink);
+
+    res.status(200).json({
+      message: "Document generated and email sent",
+      docId,
+    });
+  } catch (error) {
+    console.error("❌ Error in /document/send:", error);
+    res.status(500).json({
+      error: "Failed to generate document",
+      details: error.message,
+    });
+  }
+});
 
 // app.post('/document/send', async (req, res) => {
 //     console.log("Plans received:", req.body.formData.selectedPlans);
@@ -167,46 +269,10 @@ const imageOptions = {
 // });
 
 
-app.post('/document/send', async (req, res) => {
-    console.log("📥 Request received at /document/send"); // Log this first!
 
-    try {
-        const { formData } = req.body;
-        if (!formData) return res.status(400).json({ error: 'No data' });
 
-        const docId = uuidv4();
-        
-        // 1. Prepare Docxtemplater
-        const content = await fs.readFile(path.join(__dirname, 'template.docx'), 'binary');
-        const zip = new PizZip(content);
-        const doc = new Docxtemplater(zip, { /* your config */ });
 
-        // 2. Set Data and Render
-        doc.setData({ ...formData });
-        doc.render();
 
-        // 3. GENERATE BUFFER FIRST
-        const buffer = doc.getZip().generate({
-            type: "nodebuffer",
-            compression: "DEFLATE",
-        });
-
-        // 4. NOW UPLOAD
-        const fileName = await uploadDoc(buffer, docId); 
-
-        // ... rest of your email logic ...
-
-        res.status(200).json({ message: 'Success' });
-    } catch (error) {
-        console.error("❌ CRASH:", error);
-        res.status(500).json({ error: error.message });
-    }
-});
-app.post('/document/get', async (req, res) => {
-    console.log("Plans received:");
-    console.log("Plans received:");
-    
-});
 
   const buildBenefitsTable = (formData) => {
     const { selectedPlans = [], tableData = [] } = formData;
@@ -431,189 +497,486 @@ app.get("/document/fetch/:docId", async (req, res) => {
   }
 });
 
+// app.get("/document/fetch/:docId", async (req, res) => {
+//   const docInfo = documentStore[req.params.docId];
+//   if (!docInfo) return res.status(404).send("Not found");
 
-// app.post('/document/finalize/:docId', async (req, res) => {
-//     try {
-//         const { signature } = req.body;
-//         const docInfo = documentStore[req.params.docId];
+//   try {
+//     const fileBuffer = await downloadDoc(docInfo.fileName);
+    
+//     // DO NOT RENDER HERE. 
+//     // Just send the buffer as is so the {%signature_left} tags stay in the file.
 
-//         if (!docInfo || docInfo.status !== 'pending') {
-//             return res.status(404).json({ error: 'Document not found or already signed.' });
+//     res.setHeader(
+//       "Content-Type",
+//       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+//     );
+//     res.send(fileBuffer);
+//   } catch (err) {
+//     res.status(500).send("Failed to fetch document");
+//   }
+// });
+// app.post("/document/finalize/:docIdzzxx", async (req, res) => {
+//   try {
+//     const { signature } = req.body;
+
+//     console.log("=== Received Signature ===");
+//     console.log("Signature length:", signature?.length);
+
+//     const docInfo = documentStore[req.params.docId];
+
+//     if (!docInfo || docInfo.status !== "pending") {
+//       return res.status(404).json({ error: "Document not found or already signed" });
+//     }
+
+//     // ✅ Correct ImageModule v3 configuration
+//     const opts = {
+//       centered: false,
+//       getImage: function(tagValue, tagName) {
+//         console.log("🔥 getImage CALLED for tag:", tagName);
+//         console.log("🔥 tagValue type:", typeof tagValue);
+        
+//         if (!tagValue || typeof tagValue !== 'string') {
+//           console.log("❌ Invalid tagValue");
+//           return null;
 //         }
+        
+//         console.log("🔥 tagValue starts with:", tagValue.substring(0, 30));
+        
+//         // Handle data URL
+//         if (tagValue.indexOf('data:image') === 0) {
+//           const base64Data = tagValue.split(',')[1];
+//           if (!base64Data) {
+//             console.log("❌ No base64 data found");
+//             return null;
+//           }
+//           const buffer = Buffer.from(base64Data, 'base64');
+//           console.log("✅ Buffer created, size:", buffer.length);
+//           return buffer;
+//         }
+        
+//         console.log("❌ Not a data URL");
+//         return null;
+//       },
+//       getSize: function(img, tagValue, tagName) {
+//         console.log("📏 getSize CALLED for tag:", tagName);
+//         // Return [width, height] in pixels
+//         return [150, 50];
+//       }
+//     };
 
-//         console.log("=== FINALIZE STARTED ===");
-//         console.log("Document ID:", req.params.docId);
-//         console.log("Signature received:", signature ? "YES" : "NO");
-//         console.log("Signature length:", signature ? signature.length : 0);
-//         console.log("Signature starts with:", signature ? signature.substring(0, 30) : "N/A");
+//     console.log("📥 Downloading original document...");
+//     const originalBuffer = await downloadDoc(docInfo.fileName);
+    
+//     const zip = new PizZip(originalBuffer);
+    
+//     console.log("📦 Creating ImageModule...");
+//     const imageModule = new ImageModule(opts);
+//     console.log("✅ ImageModule created");
 
-//         // Read template
-//         const content = await fs.readFile(path.join(__dirname, 'template.docx'), 'binary');
-//         const zip = new PizZip(content);
+//     console.log("📝 Creating Docxtemplater...");
+//     const doc = new Docxtemplater(zip, {
+//       modules: [imageModule],
+//       paragraphLoop: true,
+//       linebreaks: true,
+//       nullGetter: () => ""
+//     });
 
-//         // ✅ Create ImageModule instance
-//         const imageModule = new ImageModule(imageOptions);
+//     const renderData = {
+//       ...docInfo.formData,
+//       ...docInfo.benefitsTable,
+//       ...docInfo.benefitsTableTwo,
+//       startDateFormatted: formatAgreementDate(docInfo.formData.startDate),
+//       endDateFormatted: formatAgreementDate(docInfo.formData.endDate),
+//       signature_left: signature,  // Pass the full data URL
+//       signature_right: signature 
+//     };
 
-//         const doc = new Docxtemplater(zip, {
-//             modules: [imageModule],
-//             paragraphLoop: true,
-//             linebreaks: true,
-//             nullGetter: () => ""
-//         });
+//     console.log("📋 signature_left in data?", !!renderData.signature_left);
+//     console.log("📄 Calling renderAsync...");
+    
+//     await doc.renderAsync(renderData);
+    
+//     console.log("✅ Render completed");
+
+//     const signedBuffer = doc.getZip().generate({
+//       type: "nodebuffer",
+//       compression: "DEFLATE",
+//     });
+
+//     console.log("✅ Document generated, size:", signedBuffer.length);
+
+//     // Upload and send
+//     const signedFileName = `${req.params.docId}-signed.docx`;
+//     await uploadDoc(signedBuffer, `${req.params.docId}-signed`);
+
+//     documentStore[req.params.docId] = {
+//       ...docInfo,
+//       status: "signed",
+//       signedFileName,
+//     };
+
+//     await sendSignedDocumentEmail(docInfo.formData, signedBuffer);
+
+//     res.setHeader(
+//       "Content-Type",
+//       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+//     );
+//     res.setHeader(
+//       "Content-Disposition",
+//       "attachment; filename=Signed_Agreement.docx"
+//     );
+//     res.send(signedBuffer);
+
+//     console.log("✅ Document finalized and sent successfully");
+//   } catch (err) {
+//     console.error("❌ Error:", err);
+//     console.error("❌ Stack:", err.stack);
+//     res.status(500).json({ error: "Failed to finalize: " + err.message });
+//   }
+// });
+// app.post("/document/finalize/:docId", async (req, res) => {
+//   try {
+//     const { signature } = req.body;
+
+//     const docInfo = documentStore[req.params.docId];
+//     if (!docInfo) {
+//       return res.status(404).json({ error: "Document not found" });
+//     }
+
+//     const buffer = await downloadDoc(docInfo.fileName);
+//     const zip = new PizZip(buffer);
+
+//     const imageModule = new ImageModule(imageOptions);
+
+//     const doc = new Docxtemplater(zip, {
+//       modules: [imageModule],
+//       paragraphLoop: true,
+//       linebreaks: true,
+//       nullGetter: () => "",
+//     });
+
+//     doc.setData({
+//       ...docInfo.formData,
+//       ...docInfo.benefitsTable,
+//       ...docInfo.benefitsTableTwo,
+//       startDateFormatted: formatAgreementDate(docInfo.formData.startDate),
+//       endDateFormatted: formatAgreementDate(docInfo.formData.endDate),
+//       signature_left: signature,   // ✅ IMAGE
+//       signature_right: signature,
+//     });
+
+//     doc.render();
+
+//     const signedBuffer = doc.getZip().generate({
+//       type: "nodebuffer",
+//       compression: "DEFLATE",
+//     });
+
+//     await uploadDoc(signedBuffer, `${req.params.docId}-signed`);
+
+//     res.send(signedBuffer);
+//   } catch (err) {
+//     console.error("Finalize error:", err);
+//     res.status(500).json({ error: err.message });
+//   }
+// });
+
+
+// app.post("/document/finalize/:docId", async (req, res) => {
+//   try {
+//     const { signature } = req.body;
+
+//     console.log("=== Received Signature ===");
+//     if (!signature) {
+//       console.log("No signature received");
+//     } else {
+//       console.log("Signature length:", signature.length);
+//       console.log("First 100 chars:", signature.substring(0, 100));
+//       console.log("Data URL prefix:", signature.split(",")[0]); // shows "data:image/png;base64"
+//     }
+
+//     const docInfo = documentStore[req.params.docId];
+
+//     if (!docInfo || docInfo.status !== "pending") {
+//       return res
+//         .status(404)
+//         .json({ error: "Document not found or already signed" });
+//     }
+
+//     // ImageModule configuration
+//     const imageOptions = {
+//       getImage: (tagValue) => {
+//         if (!tagValue) return null;
+//         // Convert base64 Data URL to Buffer
+//         const base64Data = tagValue.split(",")[1];
+//         return Buffer.from(base64Data, "base64");
+//       },
+//       getSize: () => [150, 50], // adjust signature width x height
+//     };
+
+//     // 1️⃣ Download original DOCX from Supabase
+//     const originalBuffer = await downloadDoc(docInfo.fileName);
+
+//     const zip = new PizZip(originalBuffer);
+//     const imageModule = new ImageModule(imageOptions);
+
+//     const doc = new Docxtemplater(zip, {
+//       modules: [imageModule],
+//       paragraphLoop: true,
+//       linebreaks: true,
+//       nullGetter: () => "",
+//     });
+
+//     // 2️⃣ Insert data + signature (Buffer will be handled by ImageModule)
+//     doc.setData({
+//       ...docInfo.formData,
+//       ...docInfo.benefitsTable,
+//       ...docInfo.benefitsTableTwo,
+//       startDateFormatted: formatAgreementDate(docInfo.formData.startDate),
+//       endDateFormatted: formatAgreementDate(docInfo.formData.endDate),
+//       signature_left: signature,  // pass Data URL, ImageModule converts it
+//       signature_right: signature,
+//     });
+
+//     // Use async render to avoid deprecation warning
+//     await doc.renderAsync();
+
+//     // 3️⃣ Generate signed DOCX buffer
+//     const signedBuffer = doc.getZip().generate({
+//       type: "nodebuffer",
+//       compression: "DEFLATE",
+//     });
+
+//     // 4️⃣ Upload signed DOCX to Supabase
+//     const signedFileName = `${req.params.docId}-signed.docx`;
+//     await uploadDoc(signedBuffer, `${req.params.docId}-signed`);
+
+//     // 5️⃣ Update memory store
+//     documentStore[req.params.docId] = {
+//       ...docInfo,
+//       status: "signed",
+//       signedFileName,
+//     };
+
+//     // 6️⃣ Email signed document
+//     await sendSignedDocumentEmail(docInfo.formData, signedBuffer);
+
+//     // 7️⃣ Send file to browser
+//     res.setHeader(
+//       "Content-Type",
+//       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+//     );
+//     res.setHeader(
+//       "Content-Disposition",
+//       "attachment; filename=Signed_Agreement.docx"
+//     );
+//     res.send(signedBuffer);
+
+//     console.log("✅ Document finalized and sent successfully");
+//   } catch (err) {
+//     console.error("Finalize error:", err);
+//     res.status(500).json({ error: "Failed to finalize document" });
+//   }
+// });
+
+
+app.post('/document/finalize/:docId', async (req, res) => {
+    try {
+        const { signature } = req.body;
+        const docInfo = documentStore[req.params.docId];
+
+        if (!docInfo || docInfo.status !== 'pending') {
+            return res.status(404).json({ error: 'Document not found or already signed.' });
+        }
+
+        console.log("=== FINALIZE STARTED ===");
+        console.log("Document ID:", req.params.docId);
+        console.log("Signature received:", signature ? "YES" : "NO");
+        console.log("Signature length:", signature ? signature.length : 0);
+        console.log("Signature starts with:", signature ? signature.substring(0, 30) : "N/A");
+
+        // Read template
+        const content = await fs.readFile(path.join(__dirname, 'template.docx'), 'binary');
+        const zip = new PizZip(content);
+
+        // ✅ Create ImageModule instance
+       const imageModule = new ImageModule(imageOptions);
+
+const doc = new Docxtemplater(zip, {
+  modules: [imageModule],
+  paragraphLoop: true,
+  linebreaks: true,
+  nullGetter: () => "",
+});
+
 
      
         
 
-//         // Prepare data
-//         const dataToSet = {
-//             ...docInfo.formData,
-//             startDateFormatted: formatAgreementDate(docInfo.formData.startDate),
-//             endDateFormatted: formatAgreementDate(docInfo.formData.endDate),
-//             ...docInfo.benefitsTable,
-//             ...docInfo.benefitsTableTwo,
-//             signature_left: signature || "",  
-//     signature_right: signature || ""
-//         };
-
-//         console.log("=== DATA BEING SET ===");
-//         console.log("Keys:", Object.keys(dataToSet));
-//         console.log("Signature key present:", 'signature' in dataToSet);
-//         console.log("Signature value type:", typeof dataToSet.signature);
-
-//         doc.setData(dataToSet);
-
-//         console.log("=== RENDERING DOCUMENT ===");
-//         doc.render();
-
-//         console.log("=== GENERATING BUFFER ===");
-//         const buffer = doc.getZip().generate({
-//             type: "nodebuffer",
-//             compression: "DEFLATE",
-//         });
-
-//         console.log("=== BUFFER GENERATED ===");
-//         console.log("Buffer size:", buffer.length);
-
-//         // Save signed version
-//         const signedPath = docInfo.originalPath.replace('_original', '_signed');
-//         await fs.writeFile(signedPath, buffer);
-
-//         try {
-//             await sendSignedDocumentEmail(docInfo.formData, buffer);
-//             console.log("Completed document email sent successfully.");
-//         } catch (emailError) {
-//             console.error("Failed to send completed document email:", emailError);
-//             // We don't throw here so the user still gets their download
-//         }
-
-//         documentStore[req.params.docId].status = 'signed';
-//         documentStore[req.params.docId].signedPath = signedPath;
-
-//         console.log("=== SENDING RESPONSE ===");
-
-//         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-//         res.setHeader('Content-Disposition', 'attachment; filename=Signed_Agreement.docx');
-//         res.send(buffer);
-
-//     } catch (err) {
-//         console.error("=== FINALIZE ERROR ===");
-//         console.error("Error:", err.message);
-//         console.error("Stack:", err.stack);
-//         res.status(500).json({ 
-//             error: "Document generation failed", 
-//             details: err.message,
-//             stack: err.stack
-//         });
-//     }
-// });
-
-
-app.post("/document/finalize/:docId", async (req, res) => {
-  try {
-    const { signature } = req.body;
-    const docInfo = documentStore[req.params.docId];
-
-    if (!docInfo || docInfo.status !== "pending") {
-      return res.status(404).json({ error: "Document not found or already signed" });
-    }
-
-    // 1️⃣ Download original DOCX from Supabase
-    const originalBuffer = await downloadDoc(docInfo.fileName);
-
-    const zip = new PizZip(originalBuffer);
-    const imageModule = new ImageModule(imageOptions);
-
-    const doc = new Docxtemplater(zip, {
-      modules: [imageModule],
-      paragraphLoop: true,
-      linebreaks: true,
-      nullGetter: () => "",
-    });
-
-    // 2️⃣ Insert data + signature
-    doc.setData({
-      ...docInfo.formData,
-      ...docInfo.benefitsTable,
-      ...docInfo.benefitsTableTwo,
-      startDateFormatted: formatAgreementDate(docInfo.formData.startDate),
-      endDateFormatted: formatAgreementDate(docInfo.formData.endDate),
-      signature_left: signature,
-      signature_right: signature,
-    });
-
-    doc.render();
-
-    // 3️⃣ Generate signed DOCX buffer
-    const signedBuffer = doc.getZip().generate({
-      type: "nodebuffer",
-      compression: "DEFLATE",
-    });
-///
-    // 4️⃣ Upload signed DOCX to Supabase
-    const signedFileName = `${req.params.docId}-signed.docx`;
-
-    const { error } = await supabase.storage
-      .from("documents")
-      .upload(signedFileName, signedBuffer, {
-        contentType:
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        upsert: true,
-      });
-
-    if (error) throw error;
-
-    // 5️⃣ Update memory store
-    documentStore[req.params.docId] = {
-      ...docInfo,
-      status: "signed",
-      signedFileName,
-    };
-
-    // 6️⃣ Email signed document
-    await sendSignedDocumentEmail(docInfo.formData, signedBuffer);
-
-    // 7️⃣ Send file to browser
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    );
-    res.setHeader(
-      "Content-Disposition",
-      "attachment; filename=Signed_Agreement.docx"
-    );
-
-    res.send(signedBuffer);
-  } catch (err) {
-    console.error("Finalize error:", err);
-    res.status(500).json({ error: "Failed to finalize document" });
-  }
+        // Prepare data
+        doc.setData({
+  ...docInfo.formData,
+  ...docInfo.benefitsTable,
+  ...docInfo.benefitsTableTwo,
+  signature_left: signature,
+  signature_right: signature,
 });
+
+doc.render();
+
+
+        console.log("=== GENERATING BUFFER ===");
+        const buffer = doc.getZip().generate({
+            type: "nodebuffer",
+            compression: "DEFLATE",
+        });
+
+        console.log("=== BUFFER GENERATED ===");
+        console.log("Buffer size:", buffer.length);
+
+        // Save signed version
+        // const signedPath = docInfo.originalPath.replace('_original', '_signed');
+        // await fs.writeFile(signedPath, buffer);
+
+        try {
+            await sendSignedDocumentEmail(docInfo.formData, buffer);
+            console.log("Completed document email sent successfully.");
+        } catch (emailError) {
+            console.error("Failed to send completed document email:", emailError);
+            // We don't throw here so the user still gets their download
+        }
+documentStore[req.params.docId].status = 'signed';
+
+
+        console.log("=== SENDING RESPONSE ===");
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        res.setHeader('Content-Disposition', 'attachment; filename=Signed_Agreement.docx');
+        res.send(buffer);
+
+    } catch (err) {
+        console.error("=== FINALIZE ERROR ===");
+        console.error("Error:", err.message);
+        console.error("Stack:", err.stack);
+        res.status(500).json({ 
+            error: "Document generation failed", 
+            details: err.message,
+            stack: err.stack
+        });
+    }
+});
+
+
+// app.post("/document/finalize/:docId", async (req, res) => {
+//   try {
+//     const { signature } = req.body;
+//     console.log("=== Received Signature ===");
+//     if (!signature) {
+//       console.log("No signature received");
+//     } else {
+//       console.log("Signature length:", signature.length);
+//       console.log("First 100 chars:", signature.substring(0, 100));
+//       console.log("Data URL prefix:", signature.split(',')[0]); // shows "data:image/png;base64"
+//     }
+//     const docInfo = documentStore[req.params.docId];
+
+//     if (!docInfo || docInfo.status !== "pending") {
+//       return res.status(404).json({ error: "Document not found or already signed" });
+//     }
+
+//        const imageOptions = {
+//   getImage: (tagValue) => {
+//     if (!tagValue) return null;
+//     return Buffer.from(tagValue.split(',')[1], 'base64'); // remove 'data:image/png;base64,'
+//   },
+//   getSize: () => [150, 50], // width x height
+// };
+
+//     // 1️⃣ Download original DOCX from Supabase
+//     const originalBuffer = await downloadDoc(docInfo.fileName);
+
+//     const zip = new PizZip(originalBuffer);
+//     const imageModule = new ImageModule(imageOptions);
+
+//     const doc = new Docxtemplater(zip, {
+//       modules: [imageModule],
+//       paragraphLoop: true,
+//       linebreaks: true,
+//       nullGetter: () => "",
+//     });
+
+ 
+
+
+//     // 2️⃣ Insert data + signature
+//     doc.setData({
+//       ...docInfo.formData,
+//       ...docInfo.benefitsTable,
+//       ...docInfo.benefitsTableTwo,
+//       startDateFormatted: formatAgreementDate(docInfo.formData.startDate),
+//       endDateFormatted: formatAgreementDate(docInfo.formData.endDate),
+//       signature_left: signature,
+//       signature_right: signature,
+//     });
+
+//     doc.render();
+
+//     // 3️⃣ Generate signed DOCX buffer
+//     // const signedBuffer = doc.getZip().generate({
+//     //   type: "nodebuffer",
+//     //   compression: "DEFLATE",
+//     // });
+// ///
+//     // 4️⃣ Upload signed DOCX to Supabase
+//     const signedFileName = `${req.params.docId}-signed.docx`;
+
+//     // const { error } = await supabase.storage
+//     //   .from("documents")
+//     //   .upload(signedFileName, signedBuffer, {
+//     //     contentType:
+//     //       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+//     //     upsert: true,
+//     //   });
+
+//     // if (error) throw error;
+//     const signedBuffer = doc.getZip().generate({ type: 'nodebuffer' });
+//     await uploadDoc(signedBuffer, `${req.params.docId}-signed`);
+
+
+//     // 5️⃣ Update memory store
+//     documentStore[req.params.docId] = {
+//       ...docInfo,
+//       status: "signed",
+//       signedFileName,
+//     };
+
+//     // 6️⃣ Email signed document
+//     await sendSignedDocumentEmail(docInfo.formData, signedBuffer);
+
+//     // 7️⃣ Send file to browser
+//     res.setHeader(
+//       "Content-Type",
+//       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+//     );
+//     res.setHeader(
+//       "Content-Disposition",
+//       "attachment; filename=Signed_Agreement.docx"
+//     );
+
+//     res.send(signedBuffer);
+//   } catch (err) {
+//     console.error("Finalize error:", err);
+//     res.status(500).json({ error: "Failed to finalize document" });
+//   }
+// });
 
 // app.listen(PORT, () => {
 //     console.log(`Backend server running on http://localhost:${PORT}`);
 // });
 
 app.listen(PORT, () => {
+  connectDB();
   console.log(`Server running on port xzzx${PORT}`);
 });
 

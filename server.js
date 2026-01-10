@@ -38,7 +38,8 @@ const corsOptions = {
   origin: "https://leadway-sales-transformation-team.vercel.app", 
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true, 
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: ["Content-Type", "Authorization"],
+  exposedHeaders: ["Content-Disposition"]
 };
 
 app.use(bodyParser.json({ limit: "10mb" }));

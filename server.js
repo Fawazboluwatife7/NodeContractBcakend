@@ -305,32 +305,78 @@ const sendEmailWithSigningLink = async (formData, signingLink) => {
 };
 
 
+// app.get("/document/fetch/:docId", async (req, res) => {
+//   const docInfo = documentStore[req.params.docId];
+//   if (!docInfo) return res.status(404).send("Not found");
+
+//   try {
+//     // ⬇️ Download from Supabase
+//     const fileBuffer = await downloadDoc(docInfo.fileName);
+
+//     const zip = new PizZip(fileBuffer);
+
+//     const imageModule = new ImageModule(imageOptions);
+
+//     const companyName = docInfo.formData.companyName.replace(/\s+/g, '_');
+//     const displayName = `${companyName} Signed_Standard Contract.docx`;
+
+//     const doc = new Docxtemplater(zip, {
+//       modules: [imageModule],
+//       paragraphLoop: true,
+//       linebreaks: true,
+//       nullGetter: () => "",
+//     });
+
+//     doc.render({
+//       signature_left: "",
+//       signature_right: "",
+//     });
+
+//     const cleanBuffer = doc.getZip().generate({
+//       type: "nodebuffer",
+//       compression: "DEFLATE",
+//     });
+
+//     res.setHeader(
+//       "Content-Type",
+//       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+//     );
+
+//     res.setHeader(
+//       "Content-Disposition", 
+//       `attachment; filename="${displayName}"`
+//     );
+//     res.send(cleanBuffer);
+//   } catch (err) {
+//     console.error("Fetch error:", err);
+//     res.status(500).send("Failed to fetch document");
+//   }
+// });
+
+
 app.get("/document/fetch/:docId", async (req, res) => {
   const docInfo = documentStore[req.params.docId];
   if (!docInfo) return res.status(404).send("Not found");
 
   try {
-    // ⬇️ Download from Supabase
     const fileBuffer = await downloadDoc(docInfo.fileName);
-
     const zip = new PizZip(fileBuffer);
 
     const imageModule = new ImageModule(imageOptions);
-
-    const companyName = docInfo.formData.companyName.replace(/\s+/g, '_');
-    const displayName = `${companyName} Signed_Standard Contract.docx`;
 
     const doc = new Docxtemplater(zip, {
       modules: [imageModule],
       paragraphLoop: true,
       linebreaks: true,
-      nullGetter: () => "",
+      nullGetter: () => null, // 👈 IMPORTANT
     });
 
-    doc.render({
-      signature_left: "",
-      signature_right: "",
+    doc.setData({
+      signature_left: null,
+      signature_right: null,
     });
+
+    doc.render();
 
     const cleanBuffer = doc.getZip().generate({
       type: "nodebuffer",
@@ -341,11 +387,7 @@ app.get("/document/fetch/:docId", async (req, res) => {
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     );
-
-    res.setHeader(
-      "Content-Disposition", 
-      `attachment; filename="${displayName}"`
-    );
+    res.setHeader("Content-Encoding", "identity");
     res.send(cleanBuffer);
   } catch (err) {
     console.error("Fetch error:", err);
@@ -424,7 +466,10 @@ documentStore[req.params.docId].status = 'signed';
         console.log("=== SENDING RESPONSE ===");
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-        res.setHeader('Content-Disposition', 'attachment; filename=Signed_Agreement.docx');
+        res.setHeader(
+  "Content-Disposition", 
+  `attachment; filename="${displayName}"`
+);
         res.send(buffer);
 
     } catch (err) {

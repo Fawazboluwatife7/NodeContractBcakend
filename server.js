@@ -143,7 +143,7 @@ const doc = new Docxtemplater(zip, {
 
     // 7️⃣ Send email
     const signingLink =
-      "http://localhost:5174/sign/" + docId;
+      "https://leadway-sales-transformation-team.vercel.app/sign/" + docId;
 
     await sendEmailWithSigningLink(formData, signingLink);
 

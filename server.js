@@ -870,6 +870,12 @@ const sendEmailWithSigningLink = async (formData, signingLink) => {
     }
 };
 
+app.listen(PORT, () => {
+  connectDB();
+  console.log(`Server running on port xzzx${PORT}`);
+});
+
+
 const sendSignedDocumentEmail = async (formData, signedPdfBuffer) => {
     const base64File = signedPdfBuffer.toString('base64');
     

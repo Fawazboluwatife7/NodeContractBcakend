@@ -33,7 +33,8 @@ const FRONTEND_PORT = '5174';
 // server.js
 const corsOptions = {
 
-  origin: "https://leadway-sales-transformation-team.vercel.app", 
+  //origin: "https://leadway-sales-transformation-team.vercel.app", 
+  origin: "http://localhost:5174", 
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true, 
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -139,8 +140,10 @@ const doc = new Docxtemplater(zip, {
     };
 
     // 7️⃣ Send email
+    // const signingLink =
+    //   "https://leadway-sales-transformation-team.vercel.app/sign/" + docId;
     const signingLink =
-      "https://leadway-sales-transformation-team.vercel.app/sign/" + docId;
+      "http://localhost:5174/sign/" + docId;
 
     await sendEmailWithSigningLink(formData, signingLink);
 

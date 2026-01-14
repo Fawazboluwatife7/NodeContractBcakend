@@ -18,8 +18,9 @@ const fs = require('fs').promises;
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
+const { promisify } = require('util');
 
-
+const libre = require('libreoffice-convert');
 
 const Docxtemplater = require("docxtemplater");
 const PizZip = require("pizzip");
@@ -28,6 +29,7 @@ const ImageModule = require("docxtemplater-image-module-free");
 const app = express();
 const PORT = process.env.PORT || 3001;
 const DOCUMENTS_PATH = path.join(__dirname, 'documents');
+const convertAsync = promisify(libre.convert);
 
 // Use the exact port for your React frontend (e.g., 5174 for Vite)
 const FRONTEND_PORT = '5174'; 
@@ -77,90 +79,217 @@ const imageOptions = {
 const imageModule = new ImageModule(imageOptions);
 
 
-app.post("/document/send", async (req, res) => {
-  try {
-    const { formData } = req.body;
-
-    if (!formData) {
-      return res.status(400).json({ error: "Missing formData" });
+async function convertDocxToPdf(docxBuffer) {
+    try {
+        console.log("🔄 Converting DOCX to PDF...");
+        console.log("DOCX Buffer size:", docxBuffer.length);
+        
+        const pdfBuffer = await convertAsync(docxBuffer, '.pdf', undefined);
+        
+        console.log("✅ PDF conversion successful");
+        console.log("PDF Buffer size:", pdfBuffer.length);
+        
+        return pdfBuffer;
+    } catch (error) {
+        console.error("❌ PDF conversion failed:", error);
+        throw new Error(`PDF conversion failed: ${error.message}`);
     }
+}
 
-    console.log("Plans received:", formData.selectedPlans);
 
-    const docId = uuidv4();
+// app.post("/document/send", async (req, res) => {
+//   try {
+//     const { formData } = req.body;
 
-    // 1️⃣ Load template
-    const content = await fs.readFile(
-      path.join(__dirname, "template.docx"),
-      "binary"
-    );
+//     if (!formData) {
+//       return res.status(400).json({ error: "Missing formData" });
+//     }
 
-    const zip = new PizZip(content);
+//     console.log("Plans received:", formData.selectedPlans);
 
-  const imageModule = new ImageModule(imageOptions);
+//     const docId = uuidv4();
 
-const doc = new Docxtemplater(zip, {
-  modules: [imageModule],
-  paragraphLoop: true,
-  linebreaks: true,
-  nullGetter: () => "",
+//     // 1️⃣ Load template
+//     const content = await fs.readFile(
+//       path.join(__dirname, "template.docx"),
+//       "binary"
+//     );
+
+//     const zip = new PizZip(content);
+
+//   const imageModule = new ImageModule(imageOptions);
+
+// const doc = new Docxtemplater(zip, {
+//   modules: [imageModule],
+//   paragraphLoop: true,
+//   linebreaks: true,
+//   nullGetter: () => "",
+// });
+
+//     // 2️⃣ Build computed tables
+//     const benefitsTable = buildBenefitsTable(formData);
+//     const benefitsTableTwo = buildBenefitsTableTwo(formData);
+
+//     // 3️⃣ Inject data
+//     doc.setData({
+//       ...formData,
+//       startDateFormatted: formatAgreementDate(formData.startDate),
+//       endDateFormatted: formatAgreementDate(formData.endDate),
+//       ...benefitsTable,
+//       ...benefitsTableTwo,
+//       signature_left: "",
+//       signature_right: "",
+//     });
+
+//     doc.render();
+
+//     // 4️⃣ Generate buffer (NOW it exists)
+//     const buffer = doc.getZip().generate({
+//       type: "nodebuffer",
+//       compression: "DEFLATE",
+//     });
+
+//     // 5️⃣ Upload to Supabase
+//     const fileName = await uploadDoc(buffer, docId);
+
+//     // 6️⃣ Store metadata
+//     documentStore[docId] = {
+//       status: "pending",
+//       fileName,
+//       clientEmail: formData.groupContactPersonEmail,
+//       formData,
+//       benefitsTable,
+//       benefitsTableTwo,
+//     };
+
+//     // 7️⃣ Send email
+//     const signingLink =
+//       "https://leadway-sales-transformation-team.vercel.app/sign/" + docId;
+
+//     await sendEmailWithSigningLink(formData, signingLink);
+
+//     res.status(200).json({
+//       message: "Document generated and email sent",
+//       docId,
+//     });
+//   } catch (error) {
+//     console.error("❌ Error in /document/send:", error);
+//     res.status(500).json({
+//       error: "Failed to generate document",
+//       details: error.message,
+//     });
+//   }
+// });
+
+
+// GENERATE AND SEND DOCUMENT
+app.post("/document/send", async (req, res) => {
+    try {
+        const { formData } = req.body;
+
+        if (!formData) {
+            return res.status(400).json({ error: "Missing formData" });
+        }
+
+        console.log("=== DOCUMENT GENERATION STARTED ===");
+        console.log("Plans received:", formData.selectedPlans);
+
+        const docId = uuidv4();
+
+        // 1️⃣ Load template
+        const content = await fs.readFile(
+            path.join(__dirname, "template.docx"),
+            "binary"
+        );
+
+        const zip = new PizZip(content);
+        const imageModule = new ImageModule(imageOptions);
+
+        const doc = new Docxtemplater(zip, {
+            modules: [imageModule],
+            paragraphLoop: true,
+            linebreaks: true,
+            nullGetter: () => "",
+        });
+
+        // 2️⃣ Build computed tables
+        const benefitsTable = buildBenefitsTable(formData);
+        const benefitsTableTwo = buildBenefitsTableTwo(formData);
+
+        // 3️⃣ Inject data into template
+        doc.setData({
+            ...formData,
+            startDateFormatted: formatAgreementDate(formData.startDate),
+            endDateFormatted: formatAgreementDate(formData.endDate),
+            ...benefitsTable,
+            ...benefitsTableTwo,
+            signature_left: "",
+            signature_right: "",
+        });
+
+        // 4️⃣ Render the DOCX
+        doc.render();
+
+        // 5️⃣ Generate DOCX buffer from the rendered template
+        const docxBuffer = doc.getZip().generate({
+            type: "nodebuffer",
+            compression: "DEFLATE",
+        });
+
+        console.log("✅ DOCX generated from template. Size:", docxBuffer.length);
+
+        // 6️⃣ Convert the generated DOCX to PDF
+        const pdfBuffer = await convertDocxToPdf(docxBuffer);
+        console.log("✅ PDF converted from DOCX. Size:", pdfBuffer.length);
+
+        // 7️⃣ Upload DOCX to Supabase
+        const docxFileName = await uploadDoc(
+            docxBuffer, 
+            docId, 
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        );
+        console.log("✅ DOCX uploaded:", docxFileName);
+
+        // 8️⃣ Upload PDF to Supabase
+        const pdfFileName = await uploadDoc(
+            pdfBuffer, 
+            `${docId}_pdf`, 
+            'application/pdf'
+        );
+        console.log("✅ PDF uploaded:", pdfFileName);
+
+        // 9️⃣ Store metadata
+        documentStore[docId] = {
+            status: "pending",
+            fileName: docxFileName,        // DOCX path
+            pdfFileName: pdfFileName,      // PDF path
+            clientEmail: formData.groupContactPersonEmail,
+            formData,
+            benefitsTable,
+            benefitsTableTwo,
+        };
+
+        // 🔟 Send email with signing link
+        const signingLink =
+            "https://leadway-sales-transformation-team.vercel.app/sign/" + docId;
+
+        await sendEmailWithSigningLink(formData, signingLink);
+
+        console.log("=== DOCUMENT GENERATION COMPLETE ===");
+
+        res.status(200).json({
+            message: "Document generated and email sent",
+            docId,
+        });
+    } catch (error) {
+        console.error("❌ Error in /document/send:", error);
+        res.status(500).json({
+            error: "Failed to generate document",
+            details: error.message,
+            stack: error.stack
+        });
+    }
 });
-
-    // 2️⃣ Build computed tables
-    const benefitsTable = buildBenefitsTable(formData);
-    const benefitsTableTwo = buildBenefitsTableTwo(formData);
-
-    // 3️⃣ Inject data
-    doc.setData({
-      ...formData,
-      startDateFormatted: formatAgreementDate(formData.startDate),
-      endDateFormatted: formatAgreementDate(formData.endDate),
-      ...benefitsTable,
-      ...benefitsTableTwo,
-      signature_left: "",
-      signature_right: "",
-    });
-
-    doc.render();
-
-    // 4️⃣ Generate buffer (NOW it exists)
-    const buffer = doc.getZip().generate({
-      type: "nodebuffer",
-      compression: "DEFLATE",
-    });
-
-    // 5️⃣ Upload to Supabase
-    const fileName = await uploadDoc(buffer, docId);
-
-    // 6️⃣ Store metadata
-    documentStore[docId] = {
-      status: "pending",
-      fileName,
-      clientEmail: formData.groupContactPersonEmail,
-      formData,
-      benefitsTable,
-      benefitsTableTwo,
-    };
-
-    // 7️⃣ Send email
-    const signingLink =
-      "https://leadway-sales-transformation-team.vercel.app/sign/" + docId;
-
-    await sendEmailWithSigningLink(formData, signingLink);
-
-    res.status(200).json({
-      message: "Document generated and email sent",
-      docId,
-    });
-  } catch (error) {
-    console.error("❌ Error in /document/send:", error);
-    res.status(500).json({
-      error: "Failed to generate document",
-      details: error.message,
-    });
-  }
-});
-
 
   const buildBenefitsTable = (formData) => {
     const { selectedPlans = [], tableData = [] } = formData;
@@ -248,61 +377,48 @@ function formatAgreementDate(dateString) {
 }
 
 
-const libre = require('libreoffice-convert');
-libre.convertAsync = require('util').promisify(libre.convert);
 
-async function docxToPdfConverter(docxBuffer, outputPath) {
-    try {
-        // This uses the LibreOffice engine for a much more accurate layout
-        const pdfBuffer = await libre.convertAsync(docxBuffer, '.pdf', undefined);
-        await fs.writeFile(outputPath, pdfBuffer);
-        return outputPath;
-    } catch (err) {
-        console.error("Conversion Error:", err);
-        throw err;
-    }
-}
 
 
 // --- C. Email Sender Function ---
-const sendEmailWithSigningLink = async (formData, signingLink) => {
-    const postData = {
-        EmailAddress: formData.groupContactPersonEmail,
-        CC: formData.leadwayGroupEmailCC,
-        BCC: "",
-        Subject: "Action Required: Standard Contract Agreement Signature",
-        MessageBody: `
-            <div style="font-family: Arial, sans-serif; color: #333;">
-                <h3>Dear ${formData.groupContactPerson}</h3>
-                <p>Welcome, and thank you for choosing Leadway Health.</p>
-                <p>Please click the secure link below to review and electronically sign your Service Level Agreement (SLA). The signed agreement will be emailed to you automatically upon completion.</p>
-                <p style="padding: 15px; background: #f2630bff; border: 1px solid #f26f04ff; border-radius: 5px;">
-                    <a href="${signingLink}" style="color: #fbfafa; text-decoration: none; font-weight: bold;">CLICK HERE TO REVIEW AND SIGN DOCUMENT</a>
-                </p>
-                <p>Warm regards</p>
-            </div>
-        `,
-        Attachments: [], // NO ATTACHMENT NOW, ONLY THE LINK
-        Category: "", UserId: 0, ProviderId: 0, ServiceId: 0, Reference: "", TransactionType: "",
-    };
+// const sendEmailWithSigningLink = async (formData, signingLink) => {
+//     const postData = {
+//         EmailAddress: formData.groupContactPersonEmail,
+//         CC: formData.leadwayGroupEmailCC,
+//         BCC: "",
+//         Subject: "Action Required: Standard Contract Agreement Signature",
+//         MessageBody: `
+//             <div style="font-family: Arial, sans-serif; color: #333;">
+//                 <h3>Dear ${formData.groupContactPerson}</h3>
+//                 <p>Welcome, and thank you for choosing Leadway Health.</p>
+//                 <p>Please click the secure link below to review and electronically sign your Service Level Agreement (SLA). The signed agreement will be emailed to you automatically upon completion.</p>
+//                 <p style="padding: 15px; background: #f2630bff; border: 1px solid #f26f04ff; border-radius: 5px;">
+//                     <a href="${signingLink}" style="color: #fbfafa; text-decoration: none; font-weight: bold;">CLICK HERE TO REVIEW AND SIGN DOCUMENT</a>
+//                 </p>
+//                 <p>Warm regards</p>
+//             </div>
+//         `,
+//         Attachments: [], // NO ATTACHMENT NOW, ONLY THE LINK
+//         Category: "", UserId: 0, ProviderId: 0, ServiceId: 0, Reference: "", TransactionType: "",
+//     };
 
    
-    const apiUrl = "https://prognosis-api.leadwayhealth.com/"; 
+//     const apiUrl = "https://prognosis-api.leadwayhealth.com/"; 
 
-    const response = await fetch(
-        `${apiUrl}api/EnrolleeProfile/SendEmailAlert`,
-        {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(postData),
-        },
-    );
+//     const response = await fetch(
+//         `${apiUrl}api/EnrolleeProfile/SendEmailAlert`,
+//         {
+//             method: "POST",
+//             headers: { "Content-Type": "application/json" },
+//             body: JSON.stringify(postData),
+//         },
+//     );
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Email API error! Status: ${response.status}, Details: ${errorText}`);
-    }
-};
+//     if (!response.ok) {
+//         const errorText = await response.text();
+//         throw new Error(`Email API error! Status: ${response.status}, Details: ${errorText}`);
+//     }
+// };
 
 
 // app.get("/document/fetch/:docId", async (req, res) => {
@@ -354,47 +470,259 @@ const sendEmailWithSigningLink = async (formData, signingLink) => {
 // });
 
 
-app.get("/document/fetch/:docId", async (req, res) => {
-  const docInfo = documentStore[req.params.docId];
-  if (!docInfo) return res.status(404).send("Not found");
+// app.get("/document/fetch/:docId", async (req, res) => {
+//   const docInfo = documentStore[req.params.docId];
+//   if (!docInfo) return res.status(404).send("Not found");
 
-  try {
-    const fileBuffer = await downloadDoc(docInfo.fileName);
-    const zip = new PizZip(fileBuffer);
+//   try {
+//     const fileBuffer = await downloadDoc(docInfo.fileName);
+//     const zip = new PizZip(fileBuffer);
 
-    const imageModule = new ImageModule(imageOptions);
+//     const imageModule = new ImageModule(imageOptions);
 
-    const doc = new Docxtemplater(zip, {
-      modules: [imageModule],
-      paragraphLoop: true,
-      linebreaks: true,
-      nullGetter: () => null, // 👈 IMPORTANT
-    });
+//     const doc = new Docxtemplater(zip, {
+//       modules: [imageModule],
+//       paragraphLoop: true,
+//       linebreaks: true,
+//       nullGetter: () => null, // 👈 IMPORTANT
+//     });
 
-    doc.setData({
-      signature_left: null,
-      signature_right: null,
-    });
+//     doc.setData({
+//       signature_left: null,
+//       signature_right: null,
+//     });
 
-    doc.render();
+//     doc.render();
 
-    const cleanBuffer = doc.getZip().generate({
-      type: "nodebuffer",
-      compression: "DEFLATE",
-    });
+//     const cleanBuffer = doc.getZip().generate({
+//       type: "nodebuffer",
+//       compression: "DEFLATE",
+//     });
 
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    );
-    res.setHeader("Content-Encoding", "identity");
-    res.send(cleanBuffer);
-  } catch (err) {
-    console.error("Fetch error:", err);
-    res.status(500).send("Failed to fetch document");
-  }
+//     res.setHeader(
+//       "Content-Type",
+//       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+//     );
+//     res.setHeader("Content-Encoding", "identity");
+//     res.send(cleanBuffer);
+//   } catch (err) {
+//     console.error("Fetch error:", err);
+//     res.status(500).send("Failed to fetch document");
+//   }
+// });
+
+// app.post('/document/finalize/:docId', async (req, res) => {
+//     try {
+//         const { signature } = req.body;
+//         const docInfo = documentStore[req.params.docId];
+
+//         if (!docInfo || docInfo.status !== 'pending') {
+//             return res.status(404).json({ error: 'Document not found or already signed.' });
+//         }
+
+//         console.log("=== FINALIZE STARTED ===");
+//         console.log("Document ID:", req.params.docId);
+//         console.log("Signature received:", signature ? "YES" : "NO");
+//         console.log("Signature length:", signature ? signature.length : 0);
+//         console.log("Signature starts with:", signature ? signature.substring(0, 30) : "N/A");
+
+//         // Read template
+//         const content = await fs.readFile(path.join(__dirname, 'template.docx'), 'binary');
+//         const zip = new PizZip(content);
+
+//         // ✅ Create ImageModule instance
+//        const imageModule = new ImageModule(imageOptions);
+
+// const doc = new Docxtemplater(zip, {
+//   modules: [imageModule],
+//   paragraphLoop: true,
+//   linebreaks: true,
+//   nullGetter: () => "",
+// });
+
+
+     
+        
+
+//         // Prepare data
+//         doc.setData({
+//   ...docInfo.formData,
+//   ...docInfo.benefitsTable,
+//   ...docInfo.benefitsTableTwo,
+//   signature_left: signature,
+//   signature_right: signature,
+// });
+
+// doc.render();
+
+
+//         console.log("=== GENERATING BUFFER ===");
+//         const buffer = doc.getZip().generate({
+//             type: "nodebuffer",
+//             compression: "DEFLATE",
+//         });
+
+//         console.log("=== BUFFER GENERATED ===");
+//         console.log("Buffer size:", buffer.length);
+
+//         // Save signed version
+//         // const signedPath = docInfo.originalPath.replace('_original', '_signed');
+//         // await fs.writeFile(signedPath, buffer);
+
+//         try {
+//             await sendSignedDocumentEmail(docInfo.formData, buffer);
+//             console.log("Completed document email sent successfully.");
+//         } catch (emailError) {
+//             console.error("Failed to send completed document email:", emailError);
+//             // We don't throw here so the user still gets their download
+//         }
+// documentStore[req.params.docId].status = 'signed';
+
+
+//         console.log("=== SENDING RESPONSE ===");
+
+//         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+//         res.setHeader(
+//   "Content-Disposition", 
+//   `attachment; filename="${displayName}"`
+// );
+//         res.send(buffer);
+
+//     } catch (err) {
+//         console.error("=== FINALIZE ERROR ===");
+//         console.error("Error:", err.message);
+//         console.error("Stack:", err.stack);
+//         res.status(500).json({ 
+//             error: "Document generation failed", 
+//             details: err.message,
+//             stack: err.stack
+//         });
+//     }
+// });
+
+
+
+// app.listen(PORT, () => {
+//   connectDB();
+//   console.log(`Server running on port xzzx${PORT}`);
+// });
+
+
+// const sendSignedDocumentEmail = async (formData, signedBuffer) => {
+//     const base64File = signedBuffer.toString('base64');
+//     const postData = {
+//         // Send to a different address, or CC the relevant parties
+//         EmailAddress: "fawazboluwatife7@gmail.com", 
+//         CC: "", // Add your secondary email here
+//         BCC: "",
+//         Subject: `Completed: Signed Agreement  of- ${formData.companyName}`,
+//         MessageBody: `
+//             <div style="font-family: Arial, sans-serif; color: #333;">
+//                 <h3>Hi ${formData.groupContactPerson},</h3>
+//                 <p>The Standard Contract Agreement for <strong>${formData.companyName}</strong> has been successfully signed.</p>
+//                 <p>Please find the fully signed document attached to this email.</p>
+//                 <p>Warm regards,<br>Leadway Health Team</p>
+//             </div>
+//         `,
+//         Attachments: [
+//             {
+//                 FileName: `Signed_Agreement_${formData.companyName.replace(/\s+/g, '_')}.docx`,
+//                 Base64Data: base64File,
+//                 ContentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+//             }
+//         ],
+//         Category: "", UserId: 0, ProviderId: 0, ServiceId: 0, Reference: "", TransactionType: "",
+//     };
+
+//     const apiUrl = "https://prognosis-api.leadwayhealth.com/"; 
+
+//     const response = await fetch(`${apiUrl}api/EnrolleeProfile/SendEmailAlert`, {
+//         method: "POST",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify(postData),
+//     });
+
+//     if (!response.ok) {
+//         const errorText = await response.text();
+//         console.error("Signed Email API Error:", errorText);
+//     }
+// };
+
+
+app.get("/document/fetch-pdf/:docId", async (req, res) => {
+    const docInfo = documentStore[req.params.docId];
+    
+    if (!docInfo) {
+        return res.status(404).json({ error: "Document not found" });
+    }
+
+    try {
+        console.log("📥 Fetching PDF for:", req.params.docId);
+
+        // Download PDF from Supabase
+        const pdfBuffer = await downloadDoc(docInfo.pdfFileName);
+
+        // Send PDF
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", "inline; filename=contract.pdf");
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Cache-Control", "no-cache");
+        res.send(pdfBuffer);
+
+        console.log("✅ PDF sent successfully");
+
+    } catch (err) {
+        console.error("❌ Fetch PDF error:", err);
+        res.status(500).json({ 
+            error: "Failed to fetch PDF",
+            details: err.message 
+        });
+    }
 });
 
+// FETCH DOCX - Keep for backup
+app.get("/document/fetch/:docId", async (req, res) => {
+    const docInfo = documentStore[req.params.docId];
+    if (!docInfo) return res.status(404).send("Not found");
+
+    try {
+        const fileBuffer = await downloadDoc(docInfo.fileName);
+        const zip = new PizZip(fileBuffer);
+
+        const imageModule = new ImageModule(imageOptions);
+
+        const doc = new Docxtemplater(zip, {
+            modules: [imageModule],
+            paragraphLoop: true,
+            linebreaks: true,
+            nullGetter: () => null,
+        });
+
+        doc.setData({
+            signature_left: null,
+            signature_right: null,
+        });
+
+        doc.render();
+
+        const cleanBuffer = doc.getZip().generate({
+            type: "nodebuffer",
+            compression: "DEFLATE",
+        });
+
+        res.setHeader(
+            "Content-Type",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        );
+        res.setHeader("Content-Encoding", "identity");
+        res.send(cleanBuffer);
+    } catch (err) {
+        console.error("Fetch error:", err);
+        res.status(500).send("Failed to fetch document");
+    }
+});
+
+// FINALIZE - Sign and create PDF from signed DOCX
 app.post('/document/finalize/:docId', async (req, res) => {
     try {
         const { signature } = req.body;
@@ -407,77 +735,92 @@ app.post('/document/finalize/:docId', async (req, res) => {
         console.log("=== FINALIZE STARTED ===");
         console.log("Document ID:", req.params.docId);
         console.log("Signature received:", signature ? "YES" : "NO");
-        console.log("Signature length:", signature ? signature.length : 0);
-        console.log("Signature starts with:", signature ? signature.substring(0, 30) : "N/A");
 
-        // Read template
-        const content = await fs.readFile(path.join(__dirname, 'template.docx'), 'binary');
+        // 1️⃣ Read template
+        const content = await fs.readFile(
+            path.join(__dirname, 'template.docx'), 
+            'binary'
+        );
         const zip = new PizZip(content);
 
-        // ✅ Create ImageModule instance
-       const imageModule = new ImageModule(imageOptions);
+        // 2️⃣ Create signed document with template
+        const imageModule = new ImageModule(imageOptions);
 
-const doc = new Docxtemplater(zip, {
-  modules: [imageModule],
-  paragraphLoop: true,
-  linebreaks: true,
-  nullGetter: () => "",
-});
+        const doc = new Docxtemplater(zip, {
+            modules: [imageModule],
+            paragraphLoop: true,
+            linebreaks: true,
+            nullGetter: () => "",
+        });
 
-
-     
-        
-
-        // Prepare data
+        // 3️⃣ Inject data WITH signature
         doc.setData({
-  ...docInfo.formData,
-  ...docInfo.benefitsTable,
-  ...docInfo.benefitsTableTwo,
-  signature_left: signature,
-  signature_right: signature,
-});
+            ...docInfo.formData,
+            ...docInfo.benefitsTable,
+            ...docInfo.benefitsTableTwo,
+            signature_left: signature,
+            signature_right: signature,
+        });
 
-doc.render();
+        // 4️⃣ Render the signed DOCX
+        doc.render();
 
-
-        console.log("=== GENERATING BUFFER ===");
-        const buffer = doc.getZip().generate({
+        // 5️⃣ Generate signed DOCX buffer
+        const signedDocxBuffer = doc.getZip().generate({
             type: "nodebuffer",
             compression: "DEFLATE",
         });
 
-        console.log("=== BUFFER GENERATED ===");
-        console.log("Buffer size:", buffer.length);
+        console.log("✅ Signed DOCX generated from template. Size:", signedDocxBuffer.length);
 
-        // Save signed version
-        // const signedPath = docInfo.originalPath.replace('_original', '_signed');
-        // await fs.writeFile(signedPath, buffer);
+        // 6️⃣ Convert the signed DOCX to PDF
+        const signedPdfBuffer = await convertDocxToPdf(signedDocxBuffer);
+        console.log("✅ Signed PDF converted from signed DOCX. Size:", signedPdfBuffer.length);
 
+        // 7️⃣ Upload signed DOCX to Supabase (optional, for backup)
+        const signedDocxFileName = await uploadDoc(
+            signedDocxBuffer,
+            `${req.params.docId}_signed`,
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        );
+        console.log("✅ Signed DOCX uploaded:", signedDocxFileName);
+
+        // 8️⃣ Upload signed PDF to Supabase
+        const signedPdfFileName = await uploadDoc(
+            signedPdfBuffer, 
+            `${req.params.docId}_signed_pdf`,
+            'application/pdf'
+        );
+        console.log("✅ Signed PDF uploaded:", signedPdfFileName);
+
+        // 9️⃣ Send email with signed PDF
         try {
-            await sendSignedDocumentEmail(docInfo.formData, buffer);
-            console.log("Completed document email sent successfully.");
+            await sendSignedDocumentEmail(docInfo.formData, signedPdfBuffer);
+            console.log("✅ Signed PDF email sent successfully");
         } catch (emailError) {
-            console.error("Failed to send completed document email:", emailError);
-            // We don't throw here so the user still gets their download
+            console.error("⚠️ Failed to send email:", emailError);
+            // Don't fail the request if email fails
         }
-documentStore[req.params.docId].status = 'signed';
 
+        // 🔟 Update status
+        documentStore[req.params.docId].status = 'signed';
+        documentStore[req.params.docId].signedPdfFileName = signedPdfFileName;
+        documentStore[req.params.docId].signedDocxFileName = signedDocxFileName;
 
-        console.log("=== SENDING RESPONSE ===");
+        console.log("=== FINALIZE COMPLETE ===");
 
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-        res.setHeader(
-  "Content-Disposition", 
-  `attachment; filename="${displayName}"`
-);
-        res.send(buffer);
+        // Send signed PDF to user for download
+        const displayName = `${docInfo.formData.companyName}_Signed.pdf`;
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${displayName}"`);
+        res.send(signedPdfBuffer);
 
     } catch (err) {
         console.error("=== FINALIZE ERROR ===");
         console.error("Error:", err.message);
         console.error("Stack:", err.stack);
         res.status(500).json({ 
-            error: "Document generation failed", 
+            error: "Document finalization failed", 
             details: err.message,
             stack: err.stack
         });
@@ -486,33 +829,69 @@ documentStore[req.params.docId].status = 'signed';
 
 
 
-app.listen(PORT, () => {
-  connectDB();
-  console.log(`Server running on port xzzx${PORT}`);
-});
 
 
-const sendSignedDocumentEmail = async (formData, signedBuffer) => {
-    const base64File = signedBuffer.toString('base64');
+// EMAIL FUNCTIONS (keep as you had them)
+const sendEmailWithSigningLink = async (formData, signingLink) => {
     const postData = {
-        // Send to a different address, or CC the relevant parties
-        EmailAddress: "fawazboluwatife7@gmail.com", 
-        CC: "", // Add your secondary email here
+        EmailAddress: formData.groupContactPersonEmail,
+        CC: formData.leadwayGroupEmailCC,
         BCC: "",
-        Subject: `Completed: Signed Agreement  of- ${formData.companyName}`,
+        Subject: "Action Required: Standard Contract Agreement Signature",
+        MessageBody: `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <h3>Dear ${formData.groupContactPerson}</h3>
+                <p>Welcome, and thank you for choosing Leadway Health.</p>
+                <p>Please click the secure link below to review and electronically sign your Service Level Agreement (SLA). The signed agreement will be emailed to you automatically upon completion.</p>
+                <p style="padding: 15px; background: #f2630bff; border: 1px solid #f26f04ff; border-radius: 5px;">
+                    <a href="${signingLink}" style="color: #fbfafa; text-decoration: none; font-weight: bold;">CLICK HERE TO REVIEW AND SIGN DOCUMENT</a>
+                </p>
+                <p>Warm regards,<br>Leadway Health Team</p>
+            </div>
+        `,
+        Attachments: [],
+        Category: "", UserId: 0, ProviderId: 0, ServiceId: 0, Reference: "", TransactionType: "",
+    };
+
+    const apiUrl = "https://prognosis-api.leadwayhealth.com/"; 
+
+    const response = await fetch(
+        `${apiUrl}api/EnrolleeProfile/SendEmailAlert`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(postData),
+        },
+    );
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Email API error! Status: ${response.status}, Details: ${errorText}`);
+    }
+};
+
+const sendSignedDocumentEmail = async (formData, signedPdfBuffer) => {
+    const base64File = signedPdfBuffer.toString('base64');
+    
+    const postData = {
+        EmailAddress: formData.groupContactPersonEmail,
+        CC: formData.leadwayGroupEmailCC || "",
+        BCC: "",
+        Subject: `✅ Signed Agreement - ${formData.companyName}`,
         MessageBody: `
             <div style="font-family: Arial, sans-serif; color: #333;">
                 <h3>Hi ${formData.groupContactPerson},</h3>
                 <p>The Standard Contract Agreement for <strong>${formData.companyName}</strong> has been successfully signed.</p>
-                <p>Please find the fully signed document attached to this email.</p>
-                <p>Warm regards,<br>Leadway Health Team</p>
+                <p>Please find the fully signed document attached to this email as a PDF.</p>
+                <p>Thank you for choosing Leadway Health.</p>
+                <p>Warm regards,<br><strong>Leadway Health Team</strong></p>
             </div>
         `,
         Attachments: [
             {
-                FileName: `Signed_Agreement_${formData.companyName.replace(/\s+/g, '_')}.docx`,
+                FileName: `Signed_Agreement_${formData.companyName.replace(/\s+/g, '_')}.pdf`,
                 Base64Data: base64File,
-                ContentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                ContentType: "application/pdf"
             }
         ],
         Category: "", UserId: 0, ProviderId: 0, ServiceId: 0, Reference: "", TransactionType: "",
@@ -528,6 +907,7 @@ const sendSignedDocumentEmail = async (formData, signedBuffer) => {
 
     if (!response.ok) {
         const errorText = await response.text();
-        console.error("Signed Email API Error:", errorText);
+        throw new Error(`Signed Email API Error: ${errorText}`);
     }
 };
+

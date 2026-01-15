@@ -34,12 +34,14 @@ const FRONTEND_PORT = '5174';
 const corsOptions = {
 
   origin: "https://leadway-sales-transformation-team.vercel.app", 
-  //origin: "http://localhost:5174", 
+//   origin: "http://localhost:5174", 
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true, 
   allowedHeaders: ["Content-Type", "Authorization"],
   exposedHeaders: ["Content-Disposition"]
 };
+
+
 
 app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ limit: "10mb", extended: true }));
@@ -142,8 +144,8 @@ const doc = new Docxtemplater(zip, {
     // 7️⃣ Send email
      const signingLink =
        "https://leadway-sales-transformation-team.vercel.app/sign/" + docId;
-    // const signingLink =
-    //   "http://localhost:5174/sign/" + docId;
+    //  const signingLink =
+    //    "http://localhost:5174/sign/" + docId;
 
     await sendEmailWithSigningLink(formData, signingLink);
 
@@ -636,6 +638,9 @@ app.post('/document/finalize/:docId', async (req, res) => {
     }
 });
 
+app.get("/health", (req, res) => {
+    res.status(200).send("Server is alive and well");
+});
 
 app.listen(PORT, () => {
   connectDB();

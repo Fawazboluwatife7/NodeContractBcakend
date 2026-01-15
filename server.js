@@ -348,120 +348,279 @@ const sendEmailWithSigningLink = async (formData, signingLink) => {
 //   }
 // });
 
-app.get("/document/fetch/:docId", async (req, res) => {
-  const docInfo = documentStore[req.params.docId];
-  if (!docInfo) return res.status(404).send("Not found");
+// app.get("/document/fetch/:docId", async (req, res) => {
+//   const docInfo = documentStore[req.params.docId];
+//   if (!docInfo) return res.status(404).send("Not found");
 
-  try {
-    const fileBuffer = await downloadDoc(docInfo.fileName);
-    const zip = new PizZip(fileBuffer);
+//   try {
+//     const fileBuffer = await downloadDoc(docInfo.fileName);
+//     const zip = new PizZip(fileBuffer);
 
-    const imageModule = new ImageModule(imageOptions);
+//     const imageModule = new ImageModule(imageOptions);
 
-    const doc = new Docxtemplater(zip, {
-      modules: [imageModule],
-      paragraphLoop: true,
-      linebreaks: true,
-      nullGetter: () => null, // 👈 IMPORTANT
-    });
+//     const doc = new Docxtemplater(zip, {
+//       modules: [imageModule],
+//       paragraphLoop: true,
+//       linebreaks: true,
+//       nullGetter: () => null, // 👈 IMPORTANT
+//     });
 
-    doc.setData({
-      signature_left: null,
-      signature_right: null,
-    });
+//     doc.setData({
+//       signature_left: null,
+//       signature_right: null,
+//     });
 
-    doc.render();
+//     doc.render();
 
-    const cleanBuffer = doc.getZip().generate({
-      type: "nodebuffer",
-      compression: "DEFLATE",
-    });
+//     const cleanBuffer = doc.getZip().generate({
+//       type: "nodebuffer",
+//       compression: "DEFLATE",
+//     });
 
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    );
-    res.setHeader("Content-Encoding", "identity");
-    res.send(cleanBuffer);
-  } catch (err) {
-    console.error("Fetch error:", err);
-    res.status(500).send("Failed to fetch document");
-  }
-});
+//     res.setHeader(
+//       "Content-Type",
+//       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+//     );
+//     res.setHeader("Content-Encoding", "identity");
+//     res.send(cleanBuffer);
+//   } catch (err) {
+//     console.error("Fetch error:", err);
+//     res.status(500).send("Failed to fetch document");
+//   }
+// });
 
-app.post('/document/finalize/:docId', async (req, res) => {
-    try {
-        const { signature } = req.body;
-        const docInfo = documentStore[req.params.docId];
+// app.post('/document/finalize/:docId', async (req, res) => {
+//     try {
+//         const { signature } = req.body;
+//         const docInfo = documentStore[req.params.docId];
 
-        if (!docInfo || docInfo.status !== 'pending') {
-            return res.status(404).json({ error: 'Document not found or already signed.' });
-        }
+//         if (!docInfo || docInfo.status !== 'pending') {
+//             return res.status(404).json({ error: 'Document not found or already signed.' });
+//         }
 
-        console.log("=== FINALIZE STARTED ===");
-        console.log("Document ID:", req.params.docId);
-        console.log("Signature received:", signature ? "YES" : "NO");
-        console.log("Signature length:", signature ? signature.length : 0);
-        console.log("Signature starts with:", signature ? signature.substring(0, 30) : "N/A");
+//         console.log("=== FINALIZE STARTED ===");
+//         console.log("Document ID:", req.params.docId);
+//         console.log("Signature received:", signature ? "YES" : "NO");
+//         console.log("Signature length:", signature ? signature.length : 0);
+//         console.log("Signature starts with:", signature ? signature.substring(0, 30) : "N/A");
 
-        // Read template
-        const content = await fs.readFile(path.join(__dirname, 'template.docx'), 'binary');
-        const zip = new PizZip(content);
+//         // Read template
+//         const content = await fs.readFile(path.join(__dirname, 'template.docx'), 'binary');
+//         const zip = new PizZip(content);
 
-        // ✅ Create ImageModule instance
-       const imageModule = new ImageModule(imageOptions);
+//         // ✅ Create ImageModule instance
+//        const imageModule = new ImageModule(imageOptions);
 
-const doc = new Docxtemplater(zip, {
-  modules: [imageModule],
-  paragraphLoop: true,
-  linebreaks: true,
-  nullGetter: () => "",
-});
+// const doc = new Docxtemplater(zip, {
+//   modules: [imageModule],
+//   paragraphLoop: true,
+//   linebreaks: true,
+//   nullGetter: () => "",
+// });
 
      
         
 
-        // Prepare data
+//         // Prepare data
+//         doc.setData({
+//   ...docInfo.formData,
+//   ...docInfo.benefitsTable,
+//   ...docInfo.benefitsTableTwo,
+//   signature_left: signature,
+//   signature_right: signature,
+// });
+
+// doc.render();
+
+//         console.log("=== GENERATING BUFFER ===");
+//         const buffer = doc.getZip().generate({
+//             type: "nodebuffer",
+//             compression: "DEFLATE",
+//         });
+
+//         console.log("=== BUFFER GENERATED ===");
+//         console.log("Buffer size:", buffer.length);
+
+//         // Save signed version
+//         // const signedPath = docInfo.originalPath.replace('_original', '_signed');
+//         // await fs.writeFile(signedPath, buffer);
+
+//         try {
+//             await sendSignedDocumentEmail(docInfo.formData, buffer);
+//             console.log("Completed document email sent successfully.");
+//         } catch (emailError) {
+//             console.error("Failed to send completed document email:", emailError);
+//             // We don't throw here so the user still gets their download
+//         }
+// documentStore[req.params.docId].status = 'signed';
+
+//         console.log("=== SENDING RESPONSE ===");
+
+//         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+//         res.setHeader(
+//   "Content-Disposition", 
+//   `attachment; filename="${displayName}"`
+// );
+//         res.send(buffer);
+
+//     } catch (err) {
+//         console.error("=== FINALIZE ERROR ===");
+//         console.error("Error:", err.message);
+//         console.error("Stack:", err.stack);
+//         res.status(500).json({ 
+//             error: "Document generation failed", 
+//             details: err.message,
+//             stack: err.stack
+//         });
+//     }
+// });
+
+// FETCH ENDPOINT - For viewing (no download)
+app.get("/document/fetch/:docId", async (req, res) => {
+    const docInfo = documentStore[req.params.docId];
+    if (!docInfo) return res.status(404).send("Not found");
+
+    try {
+        console.log("📥 Fetching document for viewing:", req.params.docId);
+
+        const fileBuffer = await downloadDoc(docInfo.fileName);
+        const zip = new PizZip(fileBuffer);
+
+        const imageModule = new ImageModule(imageOptions);
+
+        const doc = new Docxtemplater(zip, {
+            modules: [imageModule],
+            paragraphLoop: true,
+            linebreaks: true,
+            nullGetter: () => null,
+        });
+
         doc.setData({
-  ...docInfo.formData,
-  ...docInfo.benefitsTable,
-  ...docInfo.benefitsTableTwo,
-  signature_left: signature,
-  signature_right: signature,
-});
+            signature_left: null,
+            signature_right: null,
+        });
 
-doc.render();
+        doc.render();
 
-        console.log("=== GENERATING BUFFER ===");
-        const buffer = doc.getZip().generate({
+        const cleanBuffer = doc.getZip().generate({
             type: "nodebuffer",
             compression: "DEFLATE",
         });
 
-        console.log("=== BUFFER GENERATED ===");
-        console.log("Buffer size:", buffer.length);
-
-        // Save signed version
-        // const signedPath = docInfo.originalPath.replace('_original', '_signed');
-        // await fs.writeFile(signedPath, buffer);
-
-        try {
-            await sendSignedDocumentEmail(docInfo.formData, buffer);
-            console.log("Completed document email sent successfully.");
-        } catch (emailError) {
-            console.error("Failed to send completed document email:", emailError);
-            // We don't throw here so the user still gets their download
-        }
-documentStore[req.params.docId].status = 'signed';
-
-        console.log("=== SENDING RESPONSE ===");
-
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        // Set headers for viewing (not downloading)
         res.setHeader(
-  "Content-Disposition", 
-  `attachment; filename="${displayName}"`
-);
-        res.send(buffer);
+            "Content-Type",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        );
+        res.setHeader("Content-Encoding", "identity");
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Cache-Control", "no-cache");
+        
+        res.send(cleanBuffer);
+        console.log("✅ Document sent for viewing");
+
+    } catch (err) {
+        console.error("❌ Fetch error:", err);
+        res.status(500).send("Failed to fetch document");
+    }
+});
+
+// FINALIZE ENDPOINT - Signs and downloads
+app.post('/document/finalize/:docId', async (req, res) => {
+    try {
+        const { signature } = req.body;
+        const { docId } = req.params;
+        const docInfo = documentStore[docId];
+
+        if (!docInfo || docInfo.status !== 'pending') {
+            return res.status(404).json({ 
+                error: 'Document not found or already signed.' 
+            });
+        }
+
+        console.log("=== FINALIZE STARTED ===");
+        console.log("Document ID:", docId);
+        console.log("Signature received:", signature ? "YES" : "NO");
+
+        // Read template
+        const content = await fs.readFile(
+            path.join(__dirname, 'template.docx'), 
+            'binary'
+        );
+        const zip = new PizZip(content);
+
+        // Create ImageModule instance
+        const imageModule = new ImageModule(imageOptions);
+
+        const doc = new Docxtemplater(zip, {
+            modules: [imageModule],
+            paragraphLoop: true,
+            linebreaks: true,
+            nullGetter: () => "",
+        });
+
+        // Prepare data with signature
+        doc.setData({
+            ...docInfo.formData,
+            ...docInfo.benefitsTable,
+            ...docInfo.benefitsTableTwo,
+            signature_left: signature,
+            signature_right: signature,
+        });
+
+        doc.render();
+
+        console.log("=== GENERATING SIGNED BUFFER ===");
+        const signedBuffer = doc.getZip().generate({
+            type: "nodebuffer",
+            compression: "DEFLATE",
+        });
+
+        console.log("✅ Signed buffer generated. Size:", signedBuffer.length);
+
+        // Upload signed document to Supabase
+        const signedFileName = await uploadDoc(
+            signedBuffer,
+            `${docId}_signed`,
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        );
+        console.log("✅ Signed document uploaded:", signedFileName);
+
+        // Send email with signed document
+        try {
+            await sendSignedDocumentEmail(docInfo.formData, signedBuffer);
+            console.log("✅ Email sent successfully");
+        } catch (emailError) {
+            console.error("⚠️ Email failed:", emailError);
+            // Don't fail the request if email fails
+        }
+
+        // Update status
+        documentStore[docId].status = 'signed';
+        documentStore[docId].signedFileName = signedFileName;
+
+        console.log("=== FINALIZE COMPLETE ===");
+
+        // Create download filename
+        const companyName = docInfo.formData.companyName 
+            ? docInfo.formData.companyName.replace(/\s+/g, '_') 
+            : 'Company';
+        const displayName = `${companyName}_Signed_Standard_Contract.docx`;
+
+        // Send signed document for download
+        res.setHeader(
+            'Content-Type', 
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        );
+        res.setHeader(
+            'Content-Disposition', 
+            `attachment; filename="${displayName}"`
+        );
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        
+        res.send(signedBuffer);
+
+        console.log("✅ Signed document sent for download:", displayName);
 
     } catch (err) {
         console.error("=== FINALIZE ERROR ===");

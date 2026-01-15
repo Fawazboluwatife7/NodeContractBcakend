@@ -646,7 +646,7 @@ const sendSignedDocumentEmail = async (formData, signedBuffer) => {
     const base64File = signedBuffer.toString('base64');
     const postData = {
         // Send to a different address, or CC the relevant parties
-        EmailAddress: "fawazboluwatife7@gmail.com", 
+        EmailAddress: `${formData.leadwayGroupEmailCC}`, 
         CC: "", // Add your secondary email here
         BCC: "",
         Subject: `Completed: Signed Agreement  of- ${formData.companyName}`,

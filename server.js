@@ -564,6 +564,8 @@ app.post('/document/finalize/:docId', async (req, res) => {
             ...docInfo.formData,
             ...docInfo.benefitsTable,
             ...docInfo.benefitsTableTwo,
+            startDateFormatted: formatAgreementDate(docInfo.formData.startDate), 
+            endDateFormatted: formatAgreementDate(docInfo.formData.endDate), 
             signature_left: signature,
             signature_right: signature,
         });

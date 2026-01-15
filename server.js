@@ -30,6 +30,22 @@ const DOCUMENTS_PATH = path.join(__dirname, 'documents');
 // Use the exact port for your React frontend (e.g., 5174 for Vite)
 const FRONTEND_PORT = '5174'; 
 
+// const isLinkExpired = (createdAt) => {
+//     if (!createdAt) return false; // Fallback for old docs
+//     const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
+//     return (new Date() - new Date(createdAt)) > threeDaysInMs;
+// };
+
+const isLinkExpired = (createdAt) => {
+    if (!createdAt) return false; // Fallback for old docs
+    
+    // 20 minutes * 60 seconds * 1000 milliseconds
+    const twentyMinutesInMs = 20 * 60 * 1000; 
+    
+    const timeElapsed = new Date() - new Date(createdAt);
+    
+    return timeElapsed > twentyMinutesInMs;
+};
 // server.js
 const corsOptions = {
 
@@ -139,6 +155,7 @@ const doc = new Docxtemplater(zip, {
       formData,
       benefitsTable,
       benefitsTableTwo,
+      createdAt: new Date(),
     };
 
     // 7️⃣ Send email
@@ -482,6 +499,12 @@ app.get("/document/fetch/:docId", async (req, res) => {
     const docInfo = documentStore[req.params.docId];
     if (!docInfo) return res.status(404).send("Not found");
 
+if (isLinkExpired(docInfo.createdAt)) {
+        console.log("⚠️ Link expired for docId:", req.params.docId);
+        return res.status(403).send("This standard contract link has expired (3-day duration).");
+    }
+
+    
     try {
         console.log("📥 Fetching document for viewing:", req.params.docId);
 
@@ -538,6 +561,11 @@ app.post('/document/finalize/:docId', async (req, res) => {
             return res.status(404).json({ 
                 error: 'Document not found or already signed.' 
             });
+        }
+
+        // CHECK FOR EXPIRATION
+        if (isLinkExpired(docInfo.createdAt)) {
+            return res.status(403).json({ error: 'This standard contract link has expired. Please kindly reachout to Leadway Health sales teams.' });
         }
 
         console.log("=== FINALIZE STARTED ===");

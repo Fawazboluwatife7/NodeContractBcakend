@@ -30,22 +30,22 @@ const DOCUMENTS_PATH = path.join(__dirname, 'documents');
 // Use the exact port for your React frontend (e.g., 5174 for Vite)
 const FRONTEND_PORT = '5174'; 
 
-// const isLinkExpired = (createdAt) => {
-//     if (!createdAt) return false; // Fallback for old docs
-//     const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
-//     return (new Date() - new Date(createdAt)) > threeDaysInMs;
-// };
-
 const isLinkExpired = (createdAt) => {
     if (!createdAt) return false; // Fallback for old docs
-    
-    // 20 minutes * 60 seconds * 1000 milliseconds
-    const twentyMinutesInMs = 20 * 60 * 1000; 
-    
-    const timeElapsed = new Date() - new Date(createdAt);
-    
-    return timeElapsed > twentyMinutesInMs;
+    const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
+    return (new Date() - new Date(createdAt)) > threeDaysInMs;
 };
+
+// const isLinkExpired = (createdAt) => {
+//     if (!createdAt) return false; // Fallback for old docs
+    
+//     // 20 minutes * 60 seconds * 1000 milliseconds
+//     const twentyMinutesInMs = 20 * 60 * 1000; 
+    
+//     const timeElapsed = new Date() - new Date(createdAt);
+    
+//     return timeElapsed > twentyMinutesInMs;
+// };
 // server.js
 const corsOptions = {
 

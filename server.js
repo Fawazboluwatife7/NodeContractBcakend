@@ -655,6 +655,122 @@ if (isLinkExpired(docInfo.createdAt)) {
 });
 
 // FINALIZE ENDPOINT - Signs and downloads
+// app.post('/document/finalize/:docId', async (req, res) => {
+//     try {
+//         const { signature } = req.body;
+//         const { docId } = req.params;
+//         const docInfo = documentStore[docId];
+
+//         if (!docInfo || docInfo.status !== 'pending') {
+//             return res.status(404).json({ 
+//                 error: 'Document not found or already signed.' 
+//             });
+//         }
+
+//         // CHECK FOR EXPIRATION
+//         if (isLinkExpired(docInfo.createdAt)) {
+//             return res.status(403).json({ error: 'This standard contract link has expired. Please kindly reachout to Leadway Health sales teams.' });
+//         }
+
+//         console.log("=== FINALIZE STARTED ===");
+//         console.log("Document ID:", docId);
+//         console.log("Signature received:", signature ? "YES" : "NO");
+
+//         // Read template
+//         const content = await fs.readFile(
+//             path.join(__dirname, 'template.docx'), 
+//             'binary'
+//         );
+//         const zip = new PizZip(content);
+
+//         // Create ImageModule instance
+//         const imageModule = new ImageModule(imageOptions);
+
+//         const doc = new Docxtemplater(zip, {
+//             modules: [imageModule],
+//             paragraphLoop: true,
+//             linebreaks: true,
+//             nullGetter: () => "",
+//         });
+
+//         // Prepare data with signature
+//         doc.setData({
+//             ...docInfo.formData,
+//             ...docInfo.benefitsTable,
+//             ...docInfo.benefitsTableTwo,
+//             startDateFormatted: formatAgreementDate(docInfo.formData.startDate), 
+//             endDateFormatted: formatAgreementDate(docInfo.formData.endDate), 
+//             signature_left: signature,
+//             signature_right: signature,
+//         });
+
+//         doc.render();
+
+//         console.log("=== GENERATING SIGNED BUFFER ===");
+//         const signedBuffer = doc.getZip().generate({
+//             type: "nodebuffer",
+//             compression: "DEFLATE",
+//         });
+
+//         console.log("✅ Signed buffer generated. Size:", signedBuffer.length);
+
+//         // Upload signed document to Supabase
+//         const signedFileName = await uploadDoc(
+//             signedBuffer,
+//             `${docId}_signed`,
+//             'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+//         );
+//         console.log("✅ Signed document uploaded:", signedFileName);
+
+//         // Send email with signed document
+//         try {
+//             await sendSignedDocumentEmail(docInfo.formData, signedBuffer);
+//             console.log("✅ Email sent successfully");
+//         } catch (emailError) {
+//             console.error("⚠️ Email failed:", emailError);
+//             // Don't fail the request if email fails
+//         }
+
+//         // Update status
+//         documentStore[docId].status = 'signed';
+//         documentStore[docId].signedFileName = signedFileName;
+
+//         console.log("=== FINALIZE COMPLETE ===");
+
+//         // Create download filename
+//         const companyName = docInfo.formData.companyName 
+//             ? docInfo.formData.companyName.replace(/\s+/g, '_') 
+//             : 'Company';
+//         const displayName = `${companyName}_Signed_Standard_Contract.docx`;
+
+//         // Send signed document for download
+//         res.setHeader(
+//             'Content-Type', 
+//             'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+//         );
+//         res.setHeader(
+//             'Content-Disposition', 
+//             `attachment; filename="${displayName}"`
+//         );
+//         res.setHeader('Access-Control-Allow-Origin', '*');
+        
+//         res.send(signedBuffer);
+
+//         console.log("✅ Signed document sent for download:", displayName);
+
+//     } catch (err) {
+//         console.error("=== FINALIZE ERROR ===");
+//         console.error("Error:", err.message);
+//         console.error("Stack:", err.stack);
+//         res.status(500).json({ 
+//             error: "Document generation failed", 
+//             details: err.message,
+//             stack: err.stack
+//         });
+//     }
+// });
+
+
 app.post('/document/finalize/:docId', async (req, res) => {
     try {
         const { signature } = req.body;
@@ -667,54 +783,89 @@ app.post('/document/finalize/:docId', async (req, res) => {
             });
         }
 
-        // CHECK FOR EXPIRATION
         if (isLinkExpired(docInfo.createdAt)) {
-            return res.status(403).json({ error: 'This standard contract link has expired. Please kindly reachout to Leadway Health sales teams.' });
+            return res.status(403).json({ 
+                error: 'This document link has expired.' 
+            });
         }
 
         console.log("=== FINALIZE STARTED ===");
         console.log("Document ID:", docId);
+        console.log("Is uploaded doc:", docInfo.isUploadedDoc);
         console.log("Signature received:", signature ? "YES" : "NO");
 
-        // Read template
-        const content = await fs.readFile(
-            path.join(__dirname, 'template.docx'), 
-            'binary'
-        );
-        const zip = new PizZip(content);
+        let signedBuffer;
 
-        // Create ImageModule instance
-        const imageModule = new ImageModule(imageOptions);
+        // ✅ Handle uploaded documents differently
+        if (docInfo.isUploadedDoc) {
+            console.log("📄 Processing uploaded document with signature");
 
-        const doc = new Docxtemplater(zip, {
-            modules: [imageModule],
-            paragraphLoop: true,
-            linebreaks: true,
-            nullGetter: () => "",
-        });
+            // Download the original uploaded file
+            const originalBuffer = await downloadDoc(docInfo.fileName);
+            
+            // Load it with docxtemplater and add signature
+            const zip = new PizZip(originalBuffer);
+            const imageModule = new ImageModule(imageOptions);
 
-        // Prepare data with signature
-        doc.setData({
-            ...docInfo.formData,
-            ...docInfo.benefitsTable,
-            ...docInfo.benefitsTableTwo,
-            startDateFormatted: formatAgreementDate(docInfo.formData.startDate), 
-            endDateFormatted: formatAgreementDate(docInfo.formData.endDate), 
-            signature_left: signature,
-            signature_right: signature,
-        });
+            const doc = new Docxtemplater(zip, {
+                modules: [imageModule],
+                paragraphLoop: true,
+                linebreaks: true,
+                nullGetter: () => "",
+            });
 
-        doc.render();
+            // ✅ Only add signature fields (no other data)
+            doc.setData({
+                signature_left: signature,
+                signature_right: signature,
+            });
 
-        console.log("=== GENERATING SIGNED BUFFER ===");
-        const signedBuffer = doc.getZip().generate({
-            type: "nodebuffer",
-            compression: "DEFLATE",
-        });
+            doc.render();
+
+            signedBuffer = doc.getZip().generate({
+                type: "nodebuffer",
+                compression: "DEFLATE",
+            });
+
+        } else {
+            // ✅ Handle generated documents (your existing code)
+            console.log("📄 Processing generated document with signature");
+
+            const content = await fs.readFile(
+                path.join(__dirname, 'template.docx'), 
+                'binary'
+            );
+            const zip = new PizZip(content);
+            const imageModule = new ImageModule(imageOptions);
+
+            const doc = new Docxtemplater(zip, {
+                modules: [imageModule],
+                paragraphLoop: true,
+                linebreaks: true,
+                nullGetter: () => "",
+            });
+
+            doc.setData({
+                ...docInfo.formData,
+                ...docInfo.benefitsTable,
+                ...docInfo.benefitsTableTwo,
+                startDateFormatted: formatAgreementDate(docInfo.formData.startDate), 
+                endDateFormatted: formatAgreementDate(docInfo.formData.endDate), 
+                signature_left: signature,
+                signature_right: signature,
+            });
+
+            doc.render();
+
+            signedBuffer = doc.getZip().generate({
+                type: "nodebuffer",
+                compression: "DEFLATE",
+            });
+        }
 
         console.log("✅ Signed buffer generated. Size:", signedBuffer.length);
 
-        // Upload signed document to Supabase
+        // Upload signed document
         const signedFileName = await uploadDoc(
             signedBuffer,
             `${docId}_signed`,
@@ -724,11 +875,17 @@ app.post('/document/finalize/:docId', async (req, res) => {
 
         // Send email with signed document
         try {
-            await sendSignedDocumentEmail(docInfo.formData, signedBuffer);
+            const emailToSend = docInfo.isUploadedDoc 
+                ? docInfo.clientEmail 
+                : docInfo.formData?.groupContactPersonEmail;
+
+            await sendSignedDocumentEmail(
+                { groupContactPersonEmail: emailToSend },
+                signedBuffer
+            );
             console.log("✅ Email sent successfully");
         } catch (emailError) {
             console.error("⚠️ Email failed:", emailError);
-            // Don't fail the request if email fails
         }
 
         // Update status
@@ -738,10 +895,9 @@ app.post('/document/finalize/:docId', async (req, res) => {
         console.log("=== FINALIZE COMPLETE ===");
 
         // Create download filename
-        const companyName = docInfo.formData.companyName 
-            ? docInfo.formData.companyName.replace(/\s+/g, '_') 
-            : 'Company';
-        const displayName = `${companyName}_Signed_Standard_Contract.docx`;
+        const displayName = docInfo.isUploadedDoc
+            ? `Signed_${docInfo.originalFileName}`
+            : `${docInfo.formData?.companyName || 'Company'}_Signed_Contract.docx`;
 
         // Send signed document for download
         res.setHeader(
@@ -765,7 +921,6 @@ app.post('/document/finalize/:docId', async (req, res) => {
         res.status(500).json({ 
             error: "Document generation failed", 
             details: err.message,
-            stack: err.stack
         });
     }
 });
@@ -890,6 +1045,7 @@ app.post("/documents/upload", upload.single('file'), async (req, res) => {
             originalFileName: req.file.originalname,
             uploadedAt: new Date(),
             createdAt: new Date(),
+             isUploadedDoc: true,
         };
 
         // ✅ Send email with signing link

@@ -25,6 +25,7 @@
     "libreoffice-convert": "^1.7.0",
     "mongodb": "^7.0.0",
     "mongoose": "^9.1.2",
+    "multer": "^2.0.2",
     "pdf-lib": "^1.17.1",
     "pizzip": "^3.2.0",
     "uuid": "^13.0.0"

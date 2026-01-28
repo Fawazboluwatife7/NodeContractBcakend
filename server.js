@@ -16,6 +16,23 @@ const { PDFDocument } = require('pdf-lib');
 const fs = require('fs').promises;
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const multer = require('multer');
+
+
+const storage = multer.memoryStorage();
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+    fileFilter: (req, file, cb) => {
+        // Only accept .docx files
+        if (file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+            cb(null, true);
+        } else {
+            cb(new Error('Only .docx files are allowed'));
+        }
+    }
+});
+
 
 
 
@@ -49,8 +66,8 @@ const isLinkExpired = (createdAt) => {
 // server.js
 const corsOptions = {
 
-  origin: "https://leadway-sales-transformation-team.vercel.app", 
-//   origin: "http://localhost:5174", 
+   origin: "https://leadway-sales-transformation-team.vercel.app", 
+ //origin: "http://localhost:5174", 
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true, 
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -92,7 +109,7 @@ const imageOptions = {
 
 const imageModule = new ImageModule(imageOptions);
 
-app.post("/document/send", async (req, res) => {
+ app.post("/document/send", async (req, res) => {
   try {
     const { formData } = req.body;
 
@@ -159,8 +176,8 @@ const doc = new Docxtemplater(zip, {
     };
 
     // 7️⃣ Send email
-     const signingLink =
-       "https://leadway-sales-transformation-team.vercel.app/sign/" + docId;
+      const signingLink =
+        "https://leadway-sales-transformation-team.vercel.app/sign/" + docId;
     //  const signingLink =
     //    "http://localhost:5174/sign/" + docId;
 
@@ -178,6 +195,92 @@ const doc = new Docxtemplater(zip, {
     });
   }
 });
+// app.post("/documents/upload", async (req, res) => {
+//   try {
+//     const { formData } = req.body;
+
+//     if (!formData) {
+//       return res.status(400).json({ error: "Missing formData" });
+//     }
+
+//     console.log("Plans received:", formData.selectedPlans);
+
+//     const docId = uuidv4();
+
+//     // 1️⃣ Load template
+//     const content = await fs.readFile(
+//       path.join(__dirname, "template.docx"),
+//       "binary"
+//     );
+
+//     const zip = new PizZip(content);
+
+//   const imageModule = new ImageModule(imageOptions);
+
+// const doc = new Docxtemplater(zip, {
+//   modules: [imageModule],
+//   paragraphLoop: true,
+//   linebreaks: true,
+//   nullGetter: () => "",
+// });
+
+//     // 2️⃣ Build computed tables
+//     const benefitsTable = buildBenefitsTable(formData);
+//     const benefitsTableTwo = buildBenefitsTableTwo(formData);
+
+//     // 3️⃣ Inject data
+//     doc.setData({
+//       ...formData,
+//       startDateFormatted: formatAgreementDate(formData.startDate),
+//       endDateFormatted: formatAgreementDate(formData.endDate),
+//       ...benefitsTable,
+//       ...benefitsTableTwo,
+//       signature_left: "",
+//       signature_right: "",
+//     });
+
+//     doc.render();
+
+//     // 4️⃣ Generate buffer (NOW it exists)
+//     const buffer = doc.getZip().generate({
+//       type: "nodebuffer",
+//       compression: "DEFLATE",
+//     });
+
+//     // 5️⃣ Upload to Supabase
+//     const fileName = await uploadDoc(buffer, docId);
+
+//     // 6️⃣ Store metadata
+//     documentStore[docId] = {
+//       status: "pending",
+//       fileName,
+//       clientEmail: formData.groupContactPersonEmail,
+//       formData,
+//       benefitsTable,
+//       benefitsTableTwo,
+//       createdAt: new Date(),
+//     };
+
+//     // 7️⃣ Send email
+//       const signingLink =
+//         "https://leadway-sales-transformation-team.vercel.app/sign/" + docId;
+//     //  const signingLink =
+//     //    "http://localhost:5174/sign/" + docId;
+
+//     await sendEmailWithSigningLink(formData, signingLink);
+
+//     res.status(200).json({
+//       message: "Document generated and email sent",
+//       docId,
+//     });
+//   } catch (error) {
+//     console.error("❌ Error in /document/send:", error);
+//     res.status(500).json({
+//       error: "Failed to generate document",
+//       details: error.message,
+//     });
+//   }
+// });
 
   const buildBenefitsTable = (formData) => {
     const { selectedPlans = [], tableData = [] } = formData;
@@ -496,6 +599,7 @@ const sendEmailWithSigningLink = async (formData, signingLink) => {
 
 // FETCH ENDPOINT - For viewing (no download)
 app.get("/document/fetch/:docId", async (req, res) => {
+  console.log("endpoint hit")
     const docInfo = documentStore[req.params.docId];
     if (!docInfo) return res.status(404).send("Not found");
 
@@ -670,6 +774,44 @@ app.get("/health", (req, res) => {
     res.status(200).send("Server is alive and well");
 });
 
+// NEW ENDPOINT: Check if document link is valid
+app.get("/document/check/:docId", async (req, res) => {
+    const docInfo = documentStore[req.params.docId];
+    
+    if (!docInfo) {
+        return res.status(404).json({ 
+            valid: false,
+            error: "Document not found" 
+        });
+    }
+
+    // Check if expired
+    if (isLinkExpired(docInfo.createdAt)) {
+        console.log("⚠️ Link expired for docId:", req.params.docId);
+        return res.json({ 
+            valid: false,
+            expired: true,
+            message: "This standard contract link has expired (3-day duration). Please contact Leadway Health sales team."
+        });
+    }
+
+    // Check if already signed
+    if (docInfo.status === 'signed') {
+        return res.json({
+            valid: false,
+            alreadySigned: true,
+            message: "This document has already been signed."
+        });
+    }
+
+    // Link is valid
+    res.json({
+        valid: true,
+        companyName: docInfo.formData.companyName,
+        createdAt: docInfo.createdAt
+    });
+});
+
 app.listen(PORT, () => {
   connectDB();
   console.log(`Server running on port xzzx${PORT}`);
@@ -715,3 +857,102 @@ const sendSignedDocumentEmail = async (formData, signedBuffer) => {
     }
 };
 
+app.post("/documents/upload", upload.single('file'), async (req, res) => {
+    try {
+        console.log("📤 Upload request received");
+        console.log("File:", req.file ? req.file.originalname : "NO FILE");
+        console.log("Client Email:", req.body.clientEmail);
+
+        // Validate inputs
+        if (!req.file) {
+            return res.status(400).json({ error: "No file uploaded" });
+        }
+
+        if (!req.body.clientEmail) {
+            return res.status(400).json({ error: "Client email is required" });
+        }
+
+        const docId = uuidv4();
+        const clientEmail = req.body.clientEmail;
+        const fileBuffer = req.file.buffer; // ✅ File is in memory
+
+        console.log("📄 File size:", fileBuffer.length, "bytes");
+
+        // ✅ Upload to Supabase
+        const fileName = await uploadDoc(fileBuffer, docId);
+        console.log("✅ Uploaded to Supabase:", fileName);
+
+        // ✅ Store metadata
+        documentStore[docId] = {
+            status: "pending",
+            fileName,
+            clientEmail: clientEmail,
+            originalFileName: req.file.originalname,
+            uploadedAt: new Date(),
+            createdAt: new Date(),
+        };
+
+        // ✅ Send email with signing link
+        const signingLink = `https://leadway-sales-transformation-team.vercel.app/sign/${docId}`;
+         //const signingLink = `http://localhost:5174/sign/${docId}`;
+
+        await sendSigningLinkForUpload(clientEmail, signingLink);
+
+        console.log("✅ Email sent to:", clientEmail);
+
+        res.status(200).json({
+            success: true,
+            message: "Document uploaded and signing link sent",
+            docId: docId,
+        });
+
+    } catch (error) {
+        console.error("❌ Error in /documents/upload:", error);
+        res.status(500).json({
+            error: "Upload failed",
+            details: error.message,
+        });
+    }
+});
+
+// ✅ Email function for uploaded documents
+async function sendSigningLinkForUpload(clientEmail, signingLink) {
+    const postData = {
+        EmailAddress: clientEmail,
+        CC: "",
+        BCC: "",
+        Subject: "Action Required: Document Signature",
+        MessageBody: `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <h3>Dear Client,</h3>
+                <p>A document has been uploaded and requires your signature.</p>
+                <p>Please click the secure link below to review and electronically sign the document.</p>
+                <p style="padding: 15px; background: #f2630bff; border: 1px solid #f26f04ff; border-radius: 5px;">
+                    <a href="${signingLink}" style="color: #fbfafa; text-decoration: none; font-weight: bold;">
+                        CLICK HERE TO REVIEW AND SIGN DOCUMENT
+                    </a>
+                </p>
+                <p>This link will expire in 3 days.</p>
+                <p>Warm regards,<br/>Leadway Health Team</p>
+            </div>
+        `,
+        Attachments: [],
+        Category: "", UserId: 0, ProviderId: 0, ServiceId: 0, Reference: "", TransactionType: "",
+    };
+
+    const apiUrl = "https://prognosis-api.leadwayhealth.com/";
+
+    const response = await fetch(
+        `${apiUrl}api/EnrolleeProfile/SendEmailAlert`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(postData),
+        },
+    );
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Email API error! Status: ${response.status}, Details: ${errorText}`);
+    }
+}

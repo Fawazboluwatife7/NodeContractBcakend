@@ -448,10 +448,13 @@ if (isLinkExpired(docInfo.createdAt)) {
             nullGetter: () => null,
         });
 
+        const signatures = docInfo.signatures || { client: null, company: null };
+        
         doc.setData({
-            signature_left: null,
-            signature_right: null,
+            signature_left: signatures.client || "",
+            signature_right: signatures.company || "",
         });
+
 
         doc.render();
 

@@ -25,7 +25,7 @@ async function uploadDoc(buffer, docId) {
     .upload(`agreements/${docId}.docx`, buffer, {
       contentType:
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      upsert: false
+      upsert: true,
     });
 
   if (error) throw error;

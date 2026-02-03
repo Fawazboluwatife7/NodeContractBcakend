@@ -1334,6 +1334,3 @@ async function sendFullySignedDocument(clientEmail, companyEmail, documentBuffer
 
     if (!response.ok) throw new Error(`Email failed: ${response.status}`);
 }
-
-
-

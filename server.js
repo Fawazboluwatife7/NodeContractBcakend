@@ -422,182 +422,6 @@ const sendEmailWithSigningLink = async (formData, signingLink) => {
     }
 };
 
-// app.get("/document/fetch/:docId", async (req, res) => {
-//   const docInfo = documentStore[req.params.docId];
-//   if (!docInfo) return res.status(404).send("Not found");
-
-//   try {
-//     // ⬇️ Download from Supabase
-//     const fileBuffer = await downloadDoc(docInfo.fileName);
-
-//     const zip = new PizZip(fileBuffer);
-
-//     const imageModule = new ImageModule(imageOptions);
-
-//     const companyName = docInfo.formData.companyName.replace(/\s+/g, '_');
-//     const displayName = `${companyName} Signed_Standard Contract.docx`;
-
-//     const doc = new Docxtemplater(zip, {
-//       modules: [imageModule],
-//       paragraphLoop: true,
-//       linebreaks: true,
-//       nullGetter: () => "",
-//     });
-
-//     doc.render({
-//       signature_left: "",
-//       signature_right: "",
-//     });
-
-//     const cleanBuffer = doc.getZip().generate({
-//       type: "nodebuffer",
-//       compression: "DEFLATE",
-//     });
-
-//     res.setHeader(
-//       "Content-Type",
-//       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-//     );
-
-//     res.setHeader(
-//       "Content-Disposition", 
-//       `attachment; filename="${displayName}"`
-//     );
-//     res.send(cleanBuffer);
-//   } catch (err) {
-//     console.error("Fetch error:", err);
-//     res.status(500).send("Failed to fetch document");
-//   }
-// });
-
-// app.get("/document/fetch/:docId", async (req, res) => {
-//   const docInfo = documentStore[req.params.docId];
-//   if (!docInfo) return res.status(404).send("Not found");
-
-//   try {
-//     const fileBuffer = await downloadDoc(docInfo.fileName);
-//     const zip = new PizZip(fileBuffer);
-
-//     const imageModule = new ImageModule(imageOptions);
-
-//     const doc = new Docxtemplater(zip, {
-//       modules: [imageModule],
-//       paragraphLoop: true,
-//       linebreaks: true,
-//       nullGetter: () => null, // 👈 IMPORTANT
-//     });
-
-//     doc.setData({
-//       signature_left: null,
-//       signature_right: null,
-//     });
-
-//     doc.render();
-
-//     const cleanBuffer = doc.getZip().generate({
-//       type: "nodebuffer",
-//       compression: "DEFLATE",
-//     });
-
-//     res.setHeader(
-//       "Content-Type",
-//       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-//     );
-//     res.setHeader("Content-Encoding", "identity");
-//     res.send(cleanBuffer);
-//   } catch (err) {
-//     console.error("Fetch error:", err);
-//     res.status(500).send("Failed to fetch document");
-//   }
-// });
-
-// app.post('/document/finalize/:docId', async (req, res) => {
-//     try {
-//         const { signature } = req.body;
-//         const docInfo = documentStore[req.params.docId];
-
-//         if (!docInfo || docInfo.status !== 'pending') {
-//             return res.status(404).json({ error: 'Document not found or already signed.' });
-//         }
-
-//         console.log("=== FINALIZE STARTED ===");
-//         console.log("Document ID:", req.params.docId);
-//         console.log("Signature received:", signature ? "YES" : "NO");
-//         console.log("Signature length:", signature ? signature.length : 0);
-//         console.log("Signature starts with:", signature ? signature.substring(0, 30) : "N/A");
-
-//         // Read template
-//         const content = await fs.readFile(path.join(__dirname, 'template.docx'), 'binary');
-//         const zip = new PizZip(content);
-
-//         // ✅ Create ImageModule instance
-//        const imageModule = new ImageModule(imageOptions);
-
-// const doc = new Docxtemplater(zip, {
-//   modules: [imageModule],
-//   paragraphLoop: true,
-//   linebreaks: true,
-//   nullGetter: () => "",
-// });
-
-     
-        
-
-//         // Prepare data
-//         doc.setData({
-//   ...docInfo.formData,
-//   ...docInfo.benefitsTable,
-//   ...docInfo.benefitsTableTwo,
-//   signature_left: signature,
-//   signature_right: signature,
-// });
-
-// doc.render();
-
-//         console.log("=== GENERATING BUFFER ===");
-//         const buffer = doc.getZip().generate({
-//             type: "nodebuffer",
-//             compression: "DEFLATE",
-//         });
-
-//         console.log("=== BUFFER GENERATED ===");
-//         console.log("Buffer size:", buffer.length);
-
-//         // Save signed version
-//         // const signedPath = docInfo.originalPath.replace('_original', '_signed');
-//         // await fs.writeFile(signedPath, buffer);
-
-//         try {
-//             await sendSignedDocumentEmail(docInfo.formData, buffer);
-//             console.log("Completed document email sent successfully.");
-//         } catch (emailError) {
-//             console.error("Failed to send completed document email:", emailError);
-//             // We don't throw here so the user still gets their download
-//         }
-// documentStore[req.params.docId].status = 'signed';
-
-//         console.log("=== SENDING RESPONSE ===");
-
-//         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-//         res.setHeader(
-//   "Content-Disposition", 
-//   `attachment; filename="${displayName}"`
-// );
-//         res.send(buffer);
-
-//     } catch (err) {
-//         console.error("=== FINALIZE ERROR ===");
-//         console.error("Error:", err.message);
-//         console.error("Stack:", err.stack);
-//         res.status(500).json({ 
-//             error: "Document generation failed", 
-//             details: err.message,
-//             stack: err.stack
-//         });
-//     }
-// });
-
-// FETCH ENDPOINT - For viewing (no download)
 app.get("/document/fetch/:docId", async (req, res) => {
   console.log("endpoint hit")
     const docInfo = documentStore[req.params.docId];
@@ -654,7 +478,8 @@ if (isLinkExpired(docInfo.createdAt)) {
     }
 });
 
-// FINALIZE ENDPOINT - Signs and downloads
+
+
 // app.post('/document/finalize/:docId', async (req, res) => {
 //     try {
 //         const { signature } = req.body;
@@ -667,54 +492,89 @@ if (isLinkExpired(docInfo.createdAt)) {
 //             });
 //         }
 
-//         // CHECK FOR EXPIRATION
 //         if (isLinkExpired(docInfo.createdAt)) {
-//             return res.status(403).json({ error: 'This standard contract link has expired. Please kindly reachout to Leadway Health sales teams.' });
+//             return res.status(403).json({ 
+//                 error: 'This document link has expired.' 
+//             });
 //         }
 
 //         console.log("=== FINALIZE STARTED ===");
 //         console.log("Document ID:", docId);
+//         console.log("Is uploaded doc:", docInfo.isUploadedDoc);
 //         console.log("Signature received:", signature ? "YES" : "NO");
 
-//         // Read template
-//         const content = await fs.readFile(
-//             path.join(__dirname, 'template.docx'), 
-//             'binary'
-//         );
-//         const zip = new PizZip(content);
+//         let signedBuffer;
 
-//         // Create ImageModule instance
-//         const imageModule = new ImageModule(imageOptions);
+//         // ✅ Handle uploaded documents differently
+//         if (docInfo.isUploadedDoc) {
+//             console.log("📄 Processing uploaded document with signature");
 
-//         const doc = new Docxtemplater(zip, {
-//             modules: [imageModule],
-//             paragraphLoop: true,
-//             linebreaks: true,
-//             nullGetter: () => "",
-//         });
+//             // Download the original uploaded file
+//             const originalBuffer = await downloadDoc(docInfo.fileName);
+            
+//             // Load it with docxtemplater and add signature
+//             const zip = new PizZip(originalBuffer);
+//             const imageModule = new ImageModule(imageOptions);
 
-//         // Prepare data with signature
-//         doc.setData({
-//             ...docInfo.formData,
-//             ...docInfo.benefitsTable,
-//             ...docInfo.benefitsTableTwo,
-//             startDateFormatted: formatAgreementDate(docInfo.formData.startDate), 
-//             endDateFormatted: formatAgreementDate(docInfo.formData.endDate), 
-//             signature_left: signature,
-//             signature_right: signature,
-//         });
+//             const doc = new Docxtemplater(zip, {
+//                 modules: [imageModule],
+//                 paragraphLoop: true,
+//                 linebreaks: true,
+//                 nullGetter: () => "",
+//             });
 
-//         doc.render();
+//             // ✅ Only add signature fields (no other data)
+//             doc.setData({
+//                 signature_left: signature,
+//                 signature_right: signature,
+//             });
 
-//         console.log("=== GENERATING SIGNED BUFFER ===");
-//         const signedBuffer = doc.getZip().generate({
-//             type: "nodebuffer",
-//             compression: "DEFLATE",
-//         });
+//             doc.render();
+
+//             signedBuffer = doc.getZip().generate({
+//                 type: "nodebuffer",
+//                 compression: "DEFLATE",
+//             });
+
+//         } else {
+//             // ✅ Handle generated documents (your existing code)
+//             console.log("📄 Processing generated document with signature");
+
+//             const content = await fs.readFile(
+//                 path.join(__dirname, 'template.docx'), 
+//                 'binary'
+//             );
+//             const zip = new PizZip(content);
+//             const imageModule = new ImageModule(imageOptions);
+
+//             const doc = new Docxtemplater(zip, {
+//                 modules: [imageModule],
+//                 paragraphLoop: true,
+//                 linebreaks: true,
+//                 nullGetter: () => "",
+//             });
+
+//             doc.setData({
+//                 ...docInfo.formData,
+//                 ...docInfo.benefitsTable,
+//                 ...docInfo.benefitsTableTwo,
+//                 startDateFormatted: formatAgreementDate(docInfo.formData.startDate), 
+//                 endDateFormatted: formatAgreementDate(docInfo.formData.endDate), 
+//                 signature_left: signature,
+//                 signature_right: signature,
+//             });
+
+//             doc.render();
+
+//             signedBuffer = doc.getZip().generate({
+//                 type: "nodebuffer",
+//                 compression: "DEFLATE",
+//             });
+//         }
 
 //         console.log("✅ Signed buffer generated. Size:", signedBuffer.length);
 
-//         // Upload signed document to Supabase
+//         // Upload signed document
 //         const signedFileName = await uploadDoc(
 //             signedBuffer,
 //             `${docId}_signed`,
@@ -724,11 +584,17 @@ if (isLinkExpired(docInfo.createdAt)) {
 
 //         // Send email with signed document
 //         try {
-//             await sendSignedDocumentEmail(docInfo.formData, signedBuffer);
+//             const emailToSend = docInfo.isUploadedDoc 
+//                 ? docInfo.clientEmail 
+//                 : docInfo.formData?.groupContactPersonEmail;
+
+//             await sendSignedDocumentEmail(
+//                 { groupContactPersonEmail: emailToSend },
+//                 signedBuffer
+//             );
 //             console.log("✅ Email sent successfully");
 //         } catch (emailError) {
 //             console.error("⚠️ Email failed:", emailError);
-//             // Don't fail the request if email fails
 //         }
 
 //         // Update status
@@ -738,10 +604,9 @@ if (isLinkExpired(docInfo.createdAt)) {
 //         console.log("=== FINALIZE COMPLETE ===");
 
 //         // Create download filename
-//         const companyName = docInfo.formData.companyName 
-//             ? docInfo.formData.companyName.replace(/\s+/g, '_') 
-//             : 'Company';
-//         const displayName = `${companyName}_Signed_Standard_Contract.docx`;
+//         const displayName = docInfo.isUploadedDoc
+//             ? `Signed_${docInfo.originalFileName}`
+//             : `${docInfo.formData?.companyName || 'Company'}_Signed_Contract.docx`;
 
 //         // Send signed document for download
 //         res.setHeader(
@@ -765,7 +630,6 @@ if (isLinkExpired(docInfo.createdAt)) {
 //         res.status(500).json({ 
 //             error: "Document generation failed", 
 //             details: err.message,
-//             stack: err.stack
 //         });
 //     }
 // });
@@ -773,13 +637,14 @@ if (isLinkExpired(docInfo.createdAt)) {
 
 app.post('/document/finalize/:docId', async (req, res) => {
     try {
-        const { signature } = req.body;
+        const { signature, signerType } = req.body; // ✅ Add signerType
         const { docId } = req.params;
         const docInfo = documentStore[docId];
 
-        if (!docInfo || docInfo.status !== 'pending') {
+        // ✅ Basic validation
+        if (!docInfo) {
             return res.status(404).json({ 
-                error: 'Document not found or already signed.' 
+                error: 'Document not found.' 
             });
         }
 
@@ -789,21 +654,57 @@ app.post('/document/finalize/:docId', async (req, res) => {
             });
         }
 
+        // ✅ Don't reject if partially signed
+        if (docInfo.status === 'fully_signed') {
+            return res.status(400).json({ 
+                error: 'This document has already been fully signed by both parties.' 
+            });
+        }
+
         console.log("=== FINALIZE STARTED ===");
         console.log("Document ID:", docId);
+        console.log("Signer Type:", signerType);
         console.log("Is uploaded doc:", docInfo.isUploadedDoc);
         console.log("Signature received:", signature ? "YES" : "NO");
 
+        // ✅ Initialize signatures object if it doesn't exist
+        if (!docInfo.signatures) {
+            docInfo.signatures = { client: null, company: null };
+        }
+
+        // ✅ Check if this person already signed
+        if (signerType === 'client' && docInfo.signatures.client) {
+            return res.status(400).json({
+                error: "You have already signed this document."
+            });
+        }
+
+        if (signerType === 'company' && docInfo.signatures.company) {
+            return res.status(400).json({
+                error: "You have already signed this document."
+            });
+        }
+
+        // ✅ Save this person's signature
+        if (signerType === 'client') {
+            console.log("📝 Saving CLIENT signature");
+            docInfo.signatures.client = signature;
+            if (!docInfo.signedBy) docInfo.signedBy = [];
+            docInfo.signedBy.push('client');
+        } else if (signerType === 'company') {
+            console.log("📝 Saving COMPANY signature");
+            docInfo.signatures.company = signature;
+            if (!docInfo.signedBy) docInfo.signedBy = [];
+            docInfo.signedBy.push('company');
+        }
+
         let signedBuffer;
 
-        // ✅ Handle uploaded documents differently
+        // ✅ Handle uploaded documents
         if (docInfo.isUploadedDoc) {
-            console.log("📄 Processing uploaded document with signature");
+            console.log("📄 Processing uploaded document with signatures");
 
-            // Download the original uploaded file
             const originalBuffer = await downloadDoc(docInfo.fileName);
-            
-            // Load it with docxtemplater and add signature
             const zip = new PizZip(originalBuffer);
             const imageModule = new ImageModule(imageOptions);
 
@@ -814,10 +715,10 @@ app.post('/document/finalize/:docId', async (req, res) => {
                 nullGetter: () => "",
             });
 
-            // ✅ Only add signature fields (no other data)
+            // ✅ Set BOTH signatures (one might be null)
             doc.setData({
-                signature_left: signature,
-                signature_right: signature,
+                signature_left: docInfo.signatures.client || "",
+                signature_right: docInfo.signatures.company || "",
             });
 
             doc.render();
@@ -828,8 +729,8 @@ app.post('/document/finalize/:docId', async (req, res) => {
             });
 
         } else {
-            // ✅ Handle generated documents (your existing code)
-            console.log("📄 Processing generated document with signature");
+            // ✅ Handle generated documents
+            console.log("📄 Processing generated document with signatures");
 
             const content = await fs.readFile(
                 path.join(__dirname, 'template.docx'), 
@@ -845,14 +746,15 @@ app.post('/document/finalize/:docId', async (req, res) => {
                 nullGetter: () => "",
             });
 
+            // ✅ Set BOTH signatures (one might be null)
             doc.setData({
                 ...docInfo.formData,
                 ...docInfo.benefitsTable,
                 ...docInfo.benefitsTableTwo,
                 startDateFormatted: formatAgreementDate(docInfo.formData.startDate), 
                 endDateFormatted: formatAgreementDate(docInfo.formData.endDate), 
-                signature_left: signature,
-                signature_right: signature,
+                signature_left: docInfo.signatures.client || "",
+                signature_right: docInfo.signatures.company || "",
             });
 
             doc.render();
@@ -865,54 +767,125 @@ app.post('/document/finalize/:docId', async (req, res) => {
 
         console.log("✅ Signed buffer generated. Size:", signedBuffer.length);
 
-        // Upload signed document
-        const signedFileName = await uploadDoc(
-            signedBuffer,
-            `${docId}_signed`,
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        );
-        console.log("✅ Signed document uploaded:", signedFileName);
+        // ✅ Check if BOTH parties have signed
+        const bothSigned = docInfo.signatures.client && docInfo.signatures.company;
 
-        // Send email with signed document
-        try {
-            const emailToSend = docInfo.isUploadedDoc 
-                ? docInfo.clientEmail 
-                : docInfo.formData?.groupContactPersonEmail;
+        if (bothSigned) {
+            console.log("🎉 BOTH PARTIES HAVE SIGNED!");
 
-            await sendSignedDocumentEmail(
-                { groupContactPersonEmail: emailToSend },
-                signedBuffer
+            // Upload final signed document
+            const signedFileName = await uploadDoc(
+                signedBuffer,
+                `${docId}_final_signed`,
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
             );
-            console.log("✅ Email sent successfully");
-        } catch (emailError) {
-            console.error("⚠️ Email failed:", emailError);
+            console.log("✅ Final signed document uploaded:", signedFileName);
+
+            // ✅ Send email to BOTH parties with attachment
+            try {
+                if (docInfo.isUploadedDoc) {
+                    // For uploaded docs
+                    await sendFullySignedDocument(
+                        docInfo.clientEmail,
+                        docInfo.companyEmail,
+                        signedBuffer,
+                        docInfo.originalFileName
+                    );
+                } else {
+                    // For generated docs
+                    await sendFullySignedDocument(
+                        docInfo.formData?.groupContactPersonEmail,
+                        docInfo.formData?.leadwayGroupEmailCC,
+                        signedBuffer,
+                        docInfo.formData?.companyName || 'Company'
+                    );
+                }
+                console.log("✅ Email sent to BOTH parties");
+            } catch (emailError) {
+                console.error("⚠️ Email failed:", emailError);
+            }
+
+            // Update status
+            documentStore[docId].status = 'fully_signed';
+            documentStore[docId].signedFileName = signedFileName;
+            documentStore[docId].fullySignedAt = new Date();
+
+            console.log("=== FINALIZE COMPLETE - FULLY SIGNED ===");
+
+            // Create download filename
+            const displayName = docInfo.isUploadedDoc
+                ? `Fully_Signed_${docInfo.originalFileName}`
+                : `${docInfo.formData?.companyName || 'Company'}_Fully_Signed_Contract.docx`;
+
+            // Send fully signed document for download
+            res.setHeader(
+                'Content-Type', 
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            );
+            res.setHeader(
+                'Content-Disposition', 
+                `attachment; filename="${displayName}"`
+            );
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            
+            res.send(signedBuffer);
+
+            console.log("✅ Fully signed document sent for download:", displayName);
+
+        } else {
+            console.log("📝 Only ONE signature recorded. Waiting for other party.");
+
+            // ✅ Upload partially signed document (overwrites original)
+            await uploadDoc(
+                signedBuffer,
+                docId, // Same filename - overwrites
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            );
+            console.log("✅ Partially signed document updated in Supabase");
+
+            // Update status
+            documentStore[docId].status = 'partially_signed';
+
+            // ✅ Send reminder to the OTHER party
+            try {
+                if (signerType === 'client' && !docInfo.signatures.company) {
+                    // Client signed, remind company
+                    const companyEmail = docInfo.isUploadedDoc 
+                        ? docInfo.companyEmail 
+                        : docInfo.formData?.leadwayGroupEmailCC;
+                    
+                    if (companyEmail) {
+                        await sendReminderToCompany(companyEmail, docId);
+                        console.log("✅ Reminder sent to company");
+                    }
+                } else if (signerType === 'company' && !docInfo.signatures.client) {
+                    // Company signed, remind client
+                    const clientEmail = docInfo.isUploadedDoc 
+                        ? docInfo.clientEmail 
+                        : docInfo.formData?.groupContactPersonEmail;
+                    
+                    if (clientEmail) {
+                        await sendReminderToClient(clientEmail, docId);
+                        console.log("✅ Reminder sent to client");
+                    }
+                }
+            } catch (reminderError) {
+                console.error("⚠️ Reminder email failed:", reminderError);
+            }
+
+            console.log("=== FINALIZE COMPLETE - PARTIALLY SIGNED ===");
+
+            // ✅ Return JSON response (not file download)
+            res.status(200).json({
+                success: true,
+                message: "Your signature has been recorded. Waiting for the other party to sign.",
+                status: "partially_signed",
+                signatures: {
+                    client: !!docInfo.signatures.client,
+                    company: !!docInfo.signatures.company,
+                }
+            });
         }
-
-        // Update status
-        documentStore[docId].status = 'signed';
-        documentStore[docId].signedFileName = signedFileName;
-
-        console.log("=== FINALIZE COMPLETE ===");
-
-        // Create download filename
-        const displayName = docInfo.isUploadedDoc
-            ? `Signed_${docInfo.originalFileName}`
-            : `${docInfo.formData?.companyName || 'Company'}_Signed_Contract.docx`;
-
-        // Send signed document for download
-        res.setHeader(
-            'Content-Type', 
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        );
-        res.setHeader(
-            'Content-Disposition', 
-            `attachment; filename="${displayName}"`
-        );
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        
-        res.send(signedBuffer);
-
-        console.log("✅ Signed document sent for download:", displayName);
 
     } catch (err) {
         console.error("=== FINALIZE ERROR ===");
@@ -924,7 +897,6 @@ app.post('/document/finalize/:docId', async (req, res) => {
         });
     }
 });
-
 app.get("/health", (req, res) => {
     res.status(200).send("Server is alive and well");
 });
@@ -1012,53 +984,127 @@ const sendSignedDocumentEmail = async (formData, signedBuffer) => {
     }
 };
 
+// app.post("/documents/upload", upload.single('file'), async (req, res) => {
+//     try {
+//         console.log("📤 Upload request received");
+//         console.log("File:", req.file ? req.file.originalname : "NO FILE");
+//         console.log("Client Email:", req.body.clientEmail);
+
+//         // Validate inputs
+//         if (!req.file) {
+//             return res.status(400).json({ error: "No file uploaded" });
+//         }
+
+//         if (!req.body.clientEmail) {
+//             return res.status(400).json({ error: "Client email is required" });
+//         }
+
+//         const docId = uuidv4();
+//         const clientEmail = req.body.clientEmail;
+//         const fileBuffer = req.file.buffer; // ✅ File is in memory
+
+//         console.log("📄 File size:", fileBuffer.length, "bytes");
+
+//         // ✅ Upload to Supabase
+//         const fileName = await uploadDoc(fileBuffer, docId);
+//         console.log("✅ Uploaded to Supabase:", fileName);
+
+//         // ✅ Store metadata
+//         documentStore[docId] = {
+//             status: "pending",
+//             fileName,
+//             clientEmail: clientEmail,
+//             originalFileName: req.file.originalname,
+//             uploadedAt: new Date(),
+//             createdAt: new Date(),
+//              isUploadedDoc: true,
+//         };
+
+//         // ✅ Send email with signing link
+//         const signingLink = `https://leadway-sales-transformation-team.vercel.app/sign/${docId}`;
+//          //const signingLink = `http://localhost:5174/sign/${docId}`;
+
+//         await sendSigningLinkForUpload(clientEmail, signingLink);
+
+//         console.log("✅ Email sent to:", clientEmail);
+
+//         res.status(200).json({
+//             success: true,
+//             message: "Document uploaded and signing link sent",
+//             docId: docId,
+//         });
+
+//     } catch (error) {
+//         console.error("❌ Error in /documents/upload:", error);
+//         res.status(500).json({
+//             error: "Upload failed",
+//             details: error.message,
+//         });
+//     }
+// });
+
+// ✅ Email function for uploaded documents
+
 app.post("/documents/upload", upload.single('file'), async (req, res) => {
     try {
         console.log("📤 Upload request received");
-        console.log("File:", req.file ? req.file.originalname : "NO FILE");
-        console.log("Client Email:", req.body.clientEmail);
 
-        // Validate inputs
         if (!req.file) {
             return res.status(400).json({ error: "No file uploaded" });
         }
 
-        if (!req.body.clientEmail) {
-            return res.status(400).json({ error: "Client email is required" });
+        // ✅ Get BOTH email addresses
+        const { clientEmail, companyEmail } = req.body;
+
+        if (!clientEmail || !companyEmail) {
+            return res.status(400).json({ 
+                error: "Both client and company email addresses are required" 
+            });
         }
 
         const docId = uuidv4();
-        const clientEmail = req.body.clientEmail;
-        const fileBuffer = req.file.buffer; // ✅ File is in memory
+        const fileBuffer = req.file.buffer;
 
         console.log("📄 File size:", fileBuffer.length, "bytes");
+        console.log("📧 Client email:", clientEmail);
+        console.log("📧 Company email:", companyEmail);
 
-        // ✅ Upload to Supabase
+        // Upload to Supabase
         const fileName = await uploadDoc(fileBuffer, docId);
         console.log("✅ Uploaded to Supabase:", fileName);
 
-        // ✅ Store metadata
+        // ✅ Store metadata with BOTH emails and signature tracking
         documentStore[docId] = {
-            status: "pending",
+            status: "pending", // ✅ Keep as pending
             fileName,
             clientEmail: clientEmail,
+            companyEmail: companyEmail, // ✅ Add company email
             originalFileName: req.file.originalname,
             uploadedAt: new Date(),
             createdAt: new Date(),
-             isUploadedDoc: true,
+            isUploadedDoc: true,
+            signatures: {       // ✅ Track both signatures
+                client: null,
+                company: null,
+            },
+            signedBy: [],       // ✅ Track who signed
         };
 
-        // ✅ Send email with signing link
-        const signingLink = `https://leadway-sales-transformation-team.vercel.app/sign/${docId}`;
-         //const signingLink = `http://localhost:5174/sign/${docId}`;
+        // ✅ Create signing links for BOTH parties
+        const clientSigningLink = `https://leadway-sales-transformation-team.vercel.app/sign/${docId}?signer=client`;
+        const companySigningLink = `https://leadway-sales-transformation-team.vercel.app/sign/${docId}?signer=company`;
 
-        await sendSigningLinkForUpload(clientEmail, signingLink);
+        // ✅ Send emails to BOTH parties AT THE SAME TIME
+        await Promise.all([
+            sendSigningLinkToClient(clientEmail, clientSigningLink),
+            sendSigningLinkToCompany(companyEmail, companySigningLink)
+        ]);
 
-        console.log("✅ Email sent to:", clientEmail);
+        console.log("✅ Emails sent to BOTH parties");
 
         res.status(200).json({
             success: true,
-            message: "Document uploaded and signing link sent",
+            message: "Document uploaded. Signing links sent to both client and company.",
             docId: docId,
         });
 
@@ -1071,21 +1117,63 @@ app.post("/documents/upload", upload.single('file'), async (req, res) => {
     }
 });
 
-// ✅ Email function for uploaded documents
-async function sendSigningLinkForUpload(clientEmail, signingLink) {
+// async function sendSigningLinkForUpload(clientEmail, signingLink) {
+//     const postData = {
+//         EmailAddress: clientEmail,
+//         CC: "",
+//         BCC: "",
+//         Subject: "Action Required: Document Signature",
+//         MessageBody: `
+//             <div style="font-family: Arial, sans-serif; color: #333;">
+//                 <h3>Dear Client,</h3>
+//                 <p>A document has been uploaded and requires your signature.</p>
+//                 <p>Please click the secure link below to review and electronically sign the document.</p>
+//                 <p style="padding: 15px; background: #f2630bff; border: 1px solid #f26f04ff; border-radius: 5px;">
+//                     <a href="${signingLink}" style="color: #fbfafa; text-decoration: none; font-weight: bold;">
+//                         CLICK HERE TO REVIEW AND SIGN DOCUMENT
+//                     </a>
+//                 </p>
+//                 <p>This link will expire in 3 days.</p>
+//                 <p>Warm regards,<br/>Leadway Health Team</p>
+//             </div>
+//         `,
+//         Attachments: [],
+//         Category: "", UserId: 0, ProviderId: 0, ServiceId: 0, Reference: "", TransactionType: "",
+//     };
+
+//     const apiUrl = "https://prognosis-api.leadwayhealth.com/";
+
+//     const response = await fetch(
+//         `${apiUrl}api/EnrolleeProfile/SendEmailAlert`,
+//         {
+//             method: "POST",
+//             headers: { "Content-Type": "application/json" },
+//             body: JSON.stringify(postData),
+//         },
+//     );
+
+//     if (!response.ok) {
+//         const errorText = await response.text();
+//         throw new Error(`Email API error! Status: ${response.status}, Details: ${errorText}`);
+//     }
+// }
+
+// ✅ Email to client
+async function sendSigningLinkToClient(clientEmail, signingLink) {
     const postData = {
         EmailAddress: clientEmail,
         CC: "",
         BCC: "",
-        Subject: "Action Required: Document Signature",
+        Subject: "Action Required: Sign Document",
         MessageBody: `
             <div style="font-family: Arial, sans-serif; color: #333;">
                 <h3>Dear Client,</h3>
-                <p>A document has been uploaded and requires your signature.</p>
-                <p>Please click the secure link below to review and electronically sign the document.</p>
+                <p>A document requires your signature.</p>
+                <p>You can sign at any time. The company representative will also receive a signing link.</p>
+                <p><strong>Once BOTH parties have signed</strong>, you will receive the fully signed document via email.</p>
                 <p style="padding: 15px; background: #f2630bff; border: 1px solid #f26f04ff; border-radius: 5px;">
                     <a href="${signingLink}" style="color: #fbfafa; text-decoration: none; font-weight: bold;">
-                        CLICK HERE TO REVIEW AND SIGN DOCUMENT
+                        CLICK HERE TO SIGN DOCUMENT
                     </a>
                 </p>
                 <p>This link will expire in 3 days.</p>
@@ -1097,18 +1185,152 @@ async function sendSigningLinkForUpload(clientEmail, signingLink) {
     };
 
     const apiUrl = "https://prognosis-api.leadwayhealth.com/";
+    const response = await fetch(`${apiUrl}api/EnrolleeProfile/SendEmailAlert`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(postData),
+    });
 
-    const response = await fetch(
-        `${apiUrl}api/EnrolleeProfile/SendEmailAlert`,
-        {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(postData),
-        },
-    );
+    if (!response.ok) throw new Error(`Email failed: ${response.status}`);
+}
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Email API error! Status: ${response.status}, Details: ${errorText}`);
-    }
+// ✅ Email to company
+async function sendSigningLinkToCompany(companyEmail, signingLink) {
+    const postData = {
+        EmailAddress: companyEmail,
+        CC: "",
+        BCC: "",
+        Subject: "Action Required: Sign Document",
+        MessageBody: `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <h3>Dear Company Representative,</h3>
+                <p>A document requires your signature.</p>
+                <p>You can sign at any time. The client will also receive a signing link.</p>
+                <p><strong>Once BOTH parties have signed</strong>, both parties will receive the fully signed document via email.</p>
+                <p style="padding: 15px; background: #f2630bff; border: 1px solid #f26f04ff; border-radius: 5px;">
+                    <a href="${signingLink}" style="color: #fbfafa; text-decoration: none; font-weight: bold;">
+                        CLICK HERE TO SIGN DOCUMENT
+                    </a>
+                </p>
+                <p>This link will expire in 3 days.</p>
+                <p>Warm regards,<br/>Leadway Health Team</p>
+            </div>
+        `,
+        Attachments: [],
+        Category: "", UserId: 0, ProviderId: 0, ServiceId: 0, Reference: "", TransactionType: "",
+    };
+
+    const apiUrl = "https://prognosis-api.leadwayhealth.com/";
+    const response = await fetch(`${apiUrl}api/EnrolleeProfile/SendEmailAlert`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(postData),
+    });
+
+    if (!response.ok) throw new Error(`Email failed: ${response.status}`);
+}
+
+// ✅ Reminder emails
+async function sendReminderToCompany(companyEmail, docId) {
+    const signingLink = `https://leadway-sales-transformation-team.vercel.app/sign/${docId}?signer=company`;
+    
+    const postData = {
+        EmailAddress: companyEmail,
+        CC: "",
+        BCC: "",
+        Subject: "Reminder: Document Awaiting Your Signature",
+        MessageBody: `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <h3>Dear Company Representative,</h3>
+                <p><strong>The client has signed the document.</strong></p>
+                <p>The document is now awaiting your signature to be completed.</p>
+                <p style="padding: 15px; background: #f2630bff; border: 1px solid #f26f04ff; border-radius: 5px;">
+                    <a href="${signingLink}" style="color: #fbfafa; text-decoration: none; font-weight: bold;">
+                        CLICK HERE TO SIGN DOCUMENT
+                    </a>
+                </p>
+                <p>Warm regards,<br/>Leadway Health Team</p>
+            </div>
+        `,
+        Attachments: [],
+        Category: "", UserId: 0, ProviderId: 0, ServiceId: 0, Reference: "", TransactionType: "",
+    };
+
+    const apiUrl = "https://prognosis-api.leadwayhealth.com/";
+    await fetch(`${apiUrl}api/EnrolleeProfile/SendEmailAlert`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(postData),
+    });
+}
+
+async function sendReminderToClient(clientEmail, docId) {
+    const signingLink = `https://leadway-sales-transformation-team.vercel.app/sign/${docId}?signer=client`;
+    
+    const postData = {
+        EmailAddress: clientEmail,
+        CC: "",
+        BCC: "",
+        Subject: "Reminder: Document Awaiting Your Signature",
+        MessageBody: `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <h3>Dear Client,</h3>
+                <p><strong>The company representative has signed the document.</strong></p>
+                <p>The document is now awaiting your signature to be completed.</p>
+                <p style="padding: 15px; background: #f2630bff; border: 1px solid #f26f04ff; border-radius: 5px;">
+                    <a href="${signingLink}" style="color: #fbfafa; text-decoration: none; font-weight: bold;">
+                        CLICK HERE TO SIGN DOCUMENT
+                    </a>
+                </p>
+                <p>Warm regards,<br/>Leadway Health Team</p>
+            </div>
+        `,
+        Attachments: [],
+        Category: "", UserId: 0, ProviderId: 0, ServiceId: 0, Reference: "", TransactionType: "",
+    };
+
+    const apiUrl = "https://prognosis-api.leadwayhealth.com/";
+    await fetch(`${apiUrl}api/EnrolleeProfile/SendEmailAlert`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(postData),
+    });
+}
+
+// ✅ Send fully signed document to BOTH
+async function sendFullySignedDocument(clientEmail, companyEmail, documentBuffer, fileName) {
+    const base64Doc = documentBuffer.toString('base64');
+
+    const postData = {
+        EmailAddress: clientEmail,
+        CC: companyEmail, // ✅ Both receive it
+        BCC: "",
+        Subject: "✅ Fully Signed Document - " + fileName,
+        MessageBody: `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <h3>Document Fully Signed!</h3>
+                <p>Great news! The document has been signed by both parties.</p>
+                <p>The fully signed document is attached to this email.</p>
+                <p>Thank you for your cooperation.</p>
+                <p>Best regards,<br/>Leadway Health Team</p>
+            </div>
+        `,
+        Attachments: [
+            {
+                FileName: `Fully_Signed_${fileName}.docx`,
+                FileContent: base64Doc,
+                ContentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            }
+        ],
+        Category: "", UserId: 0, ProviderId: 0, ServiceId: 0, Reference: "", TransactionType: "",
+    };
+
+    const apiUrl = "https://prognosis-api.leadwayhealth.com/";
+    const response = await fetch(`${apiUrl}api/EnrolleeProfile/SendEmailAlert`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(postData),
+    });
+
+    if (!response.ok) throw new Error(`Email failed: ${response.status}`);
 }

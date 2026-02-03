@@ -424,6 +424,7 @@ const sendEmailWithSigningLink = async (formData, signingLink) => {
 
 app.get("/document/fetch/:docId", async (req, res) => {
   console.log("endpoint hit")
+    console.log("DocId:", req.params.docId);
     const docInfo = documentStore[req.params.docId];
     if (!docInfo) return res.status(404).send("Not found");
 

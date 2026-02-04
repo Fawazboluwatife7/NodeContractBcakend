@@ -446,14 +446,20 @@ if (isLinkExpired(docInfo.createdAt)) {
             modules: [imageModule],
             paragraphLoop: true,
             linebreaks: true,
-            nullGetter: () => null,
+            // nullGetter: () => null,
+            nullGetter(part) {
+        if (!part.value) {
+            return "{" + part.raw + "}"; 
+        }
+        return "";
+    }
         });
 
         const signatures = docInfo.signatures || { client: null, company: null };
         
         doc.setData({
-           signature_left: docInfo.signatures.client ? docInfo.signatures.client : "{signature_left}",
-    signature_right: docInfo.signatures.company ? docInfo.signatures.company : "{signature_right}",
+            signature_left: signatures.client,
+            signature_right: signatures.company,
         });
 
 

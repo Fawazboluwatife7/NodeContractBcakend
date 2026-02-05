@@ -97,9 +97,20 @@ const documentStore = {};
 })();
 
 const imageOptions = {
-  getImage: (tagValue) => {
-    if (!tagValue) return null;
+//   getImage: (tagValue) => {
+//     if (!tagValue) return null;
 
+//     const base64 = tagValue.replace(/^data:image\/\w+;base64,/, "");
+//     return Buffer.from(base64, "base64");
+//   },
+getImage: (tagValue) => {
+    // 1. If it's missing or if it looks like a tag (starts with "{")
+    // return null so the module does nothing and leaves the text alone.
+    if (!tagValue || (typeof tagValue === 'string' && tagValue.startsWith('{'))) {
+      return null;
+    }
+
+    // 2. Otherwise, process the real Base64 image
     const base64 = tagValue.replace(/^data:image\/\w+;base64,/, "");
     return Buffer.from(base64, "base64");
   },
@@ -722,7 +733,12 @@ app.post('/document/finalize/:docId', async (req, res) => {
                 modules: [imageModule],
                 paragraphLoop: true,
                 linebreaks: true,
-                nullGetter: () => "",
+                // nullGetter: () => "",
+nullGetter(part) {
+        if (part.type === "placeholder") return "{" + part.raw + "}";
+        return "";
+    },
+
             });
 
             // ✅ Set BOTH signatures (one might be null)
@@ -736,8 +752,8 @@ app.post('/document/finalize/:docId', async (req, res) => {
     
     // Logic: If signature exists, use it. 
     // If NOT, send the tag name back so it remains in the doc.
-    signature_left: docInfo.signatures.client ? docInfo.signatures.client : "{%signature_left}",
-    signature_right: docInfo.signatures.company ? docInfo.signatures.company : "{%signature_right}",
+    signature_left: docInfo.signatures.client ,
+    signature_right: docInfo.signatures.company,
 });
 
             doc.render();
@@ -762,7 +778,11 @@ app.post('/document/finalize/:docId', async (req, res) => {
                 modules: [imageModule],
                 paragraphLoop: true,
                 linebreaks: true,
-                nullGetter: () => "",
+                //nullGetter: () => "",
+                nullGetter(part) {
+        if (part.type === "placeholder") return "{" + part.raw + "}";
+        return "";
+    },
             });
 
             // ✅ Set BOTH signatures (one might be null)
@@ -772,8 +792,8 @@ app.post('/document/finalize/:docId', async (req, res) => {
                 ...docInfo.benefitsTableTwo,
                 startDateFormatted: formatAgreementDate(docInfo.formData.startDate), 
                 endDateFormatted: formatAgreementDate(docInfo.formData.endDate), 
-                signature_left: docInfo.signatures.client || "",
-                signature_right: docInfo.signatures.company || "",
+                signature_left: docInfo.signatures.client ,
+                signature_right: docInfo.signatures.company ,
             });
 
             doc.render();

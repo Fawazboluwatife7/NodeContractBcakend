@@ -726,19 +726,12 @@ app.post('/document/finalize/:docId', async (req, res) => {
             });
 
             // ✅ Set BOTH signatures (one might be null)
-            // doc.setData({
-            //     signature_left: docInfo.signatures.client || "",
-            //     signature_right: docInfo.signatures.company || "",
-            // });
-
             doc.setData({
-   
-    
-    // Logic: If signature exists, use it. 
-    // If NOT, send the tag name back so it remains in the doc.
-    signature_left: docInfo.signatures.client ? docInfo.signatures.client : "{%signature_left}",
-    signature_right: docInfo.signatures.company ? docInfo.signatures.company : "{%signature_right}",
-});
+                signature_left: docInfo.signatures.client || null,
+                signature_right: docInfo.signatures.company || null,
+            });
+
+          
 
             doc.render();
 

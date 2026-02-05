@@ -1294,8 +1294,9 @@ app.post("/documents/upload", upload.single('file'), async (req, res) => {
         console.log("📧 Company email:", companyEmail);
 
         // Upload to Supabase
-        const fileName = await uploadDoc(fileBuffer, docId);
-        console.log("✅ Uploaded to Supabase:", fileName);
+      //  const fileName = await uploadDoc(fileBuffer, docId);
+          const originalFileName = await uploadDoc(fileBuffer, `${docId}_original`);
+        console.log("✅ Uploaded to Supabase:", originalFileName);
 
         // ✅ Store metadata with BOTH emails and signature tracking
         documentStore[docId] = {

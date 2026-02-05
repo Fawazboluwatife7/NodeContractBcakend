@@ -103,19 +103,37 @@ const imageOptions = {
 //     const base64 = tagValue.replace(/^data:image\/\w+;base64,/, "");
 //     return Buffer.from(base64, "base64");
 //   },
-getImage: (tagValue) => {
-    // 1. If it's missing or if it looks like a tag (starts with "{")
-    // return null so the module does nothing and leaves the text alone.
-    if (!tagValue || (typeof tagValue === 'string' && tagValue.startsWith('{'))) {
+
+
+  //getSize: () => [150, 50], // adjust if needed
+  centered: false,
+  
+  getImage: (tagValue) => {
+    // If null or undefined, return null (tells module to skip)
+    if (!tagValue) {
+      return null;
+    }
+    
+    // If it's a string starting with "{", it's a preserved placeholder - skip it
+    if (typeof tagValue === 'string' && tagValue.startsWith('{')) {
       return null;
     }
 
-    // 2. Otherwise, process the real Base64 image
+    // Process real Base64 image
     const base64 = tagValue.replace(/^data:image\/\w+;base64,/, "");
     return Buffer.from(base64, "base64");
   },
 
-  getSize: () => [150, 50], // adjust if needed
+  getSize: () => [150, 50],
+  
+ 
+  getProps: (img, tagValue, tagName) => {
+    // If no image, preserve the placeholder tag
+    if (!img) {
+      return null;
+    }
+    return {};
+  }
 };
 
 const imageModule = new ImageModule(imageOptions);
@@ -735,26 +753,22 @@ app.post('/document/finalize/:docId', async (req, res) => {
                 linebreaks: true,
                 // nullGetter: () => "",
 nullGetter(part) {
-        if (part.type === "placeholder") return "{" + part.raw + "}";
-        return "";
-    },
+            // For image placeholders, return the raw tag to preserve it
+            if (part.module === 'open-xml-templating/docxtemplater-image-module') {
+                return `{%${part.value}}`;
+            }
+            return "";
+        },
 
             });
 
-            // ✅ Set BOTH signatures (one might be null)
-            // doc.setData({
-            //     signature_left: docInfo.signatures.client || "",
-            //     signature_right: docInfo.signatures.company || "",
-            // });
-
+            //✅ Set BOTH signatures (one might be null)
             doc.setData({
-   
-    
-    // Logic: If signature exists, use it. 
-    // If NOT, send the tag name back so it remains in the doc.
-    signature_left: docInfo.signatures.client ,
-    signature_right: docInfo.signatures.company,
-});
+                signature_left: docInfo.signatures.client || "",
+                signature_right: docInfo.signatures.company || "",
+            });
+
+           
 
             doc.render();
 
@@ -779,10 +793,13 @@ nullGetter(part) {
                 paragraphLoop: true,
                 linebreaks: true,
                 //nullGetter: () => "",
-                nullGetter(part) {
-        if (part.type === "placeholder") return "{" + part.raw + "}";
-        return "";
-    },
+               nullGetter(part) {
+            if (part.module === 'open-xml-templating/docxtemplater-image-module') {
+                return `{%${part.value}}`;
+            }
+            return "";
+        },
+    
             });
 
             // ✅ Set BOTH signatures (one might be null)

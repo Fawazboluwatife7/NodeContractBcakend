@@ -451,73 +451,126 @@ const sendEmailWithSigningLink = async (formData, signingLink) => {
     }
 };
 
-app.get("/document/fetch/:docId", async (req, res) => {
-  console.log("endpoint hit")
-    console.log("DocId:", req.params.docId);
-    const docInfo = documentStore[req.params.docId];
-    if (!docInfo) return res.status(404).send("Not found");
+//latest
+// app.get("/document/fetch/:docId", async (req, res) => {
+//   console.log("endpoint hit")
+//     console.log("DocId:", req.params.docId);
+//     const docInfo = documentStore[req.params.docId];
+//     if (!docInfo) return res.status(404).send("Not found");
 
-if (isLinkExpired(docInfo.createdAt)) {
-        console.log("⚠️ Link expired for docId:", req.params.docId);
-        return res.status(403).send("This standard contract link has expired (3-day duration).");
-    }
+// if (isLinkExpired(docInfo.createdAt)) {
+//         console.log("⚠️ Link expired for docId:", req.params.docId);
+//         return res.status(403).send("This standard contract link has expired (3-day duration).");
+//     }
 
     
-    try {
-        console.log("📥 Fetching document for viewing:", req.params.docId);
+//     try {
+//         console.log("📥 Fetching document for viewing:", req.params.docId);
 
-        const fileBuffer = await downloadDoc(docInfo.fileName);
-        const zip = new PizZip(fileBuffer);
+//         const fileBuffer = await downloadDoc(docInfo.fileName);
+//         const zip = new PizZip(fileBuffer);
 
-        const imageModule = new ImageModule(imageOptions);
+//         const imageModule = new ImageModule(imageOptions);
 
-        const doc = new Docxtemplater(zip, {
-            modules: [imageModule],
-            paragraphLoop: true,
-            linebreaks: true,
-            // nullGetter: () => null,
-            nullGetter(part) {
-        if (!part.value) {
-            return "{" + part.raw + "}"; 
-        }
-        return "";
-    }
-        });
+//         const doc = new Docxtemplater(zip, {
+//             modules: [imageModule],
+//             paragraphLoop: true,
+//             linebreaks: true,
+//             // nullGetter: () => null,
+//             nullGetter(part) {
+//         if (!part.value) {
+//             return "{" + part.raw + "}"; 
+//         }
+//         return "";
+//     }
+//         });
 
-        const signatures = docInfo.signatures || { client: null, company: null };
+//         const signatures = docInfo.signatures || { client: null, company: null };
         
-        doc.setData({
-            signature_left: signatures.client,
-            signature_right: signatures.company,
-        });
+//         doc.setData({
+//             signature_left: signatures.client,
+//             signature_right: signatures.company,
+//         });
 
 
-        doc.render();
+//         doc.render();
 
-        const cleanBuffer = doc.getZip().generate({
-            type: "nodebuffer",
-            compression: "DEFLATE",
-        });
+//         const cleanBuffer = doc.getZip().generate({
+//             type: "nodebuffer",
+//             compression: "DEFLATE",
+//         });
 
-        // Set headers for viewing (not downloading)
-        res.setHeader(
-            "Content-Type",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        );
-        res.setHeader("Content-Encoding", "identity");
+//         // Set headers for viewing (not downloading)
+//         res.setHeader(
+//             "Content-Type",
+//             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+//         );
+//         res.setHeader("Content-Encoding", "identity");
+//         res.setHeader("Access-Control-Allow-Origin", "*");
+//         res.setHeader("Cache-Control", "no-cache");
+        
+//         res.send(cleanBuffer);
+//         console.log("✅ Document sent for viewing");
+
+//     } catch (err) {
+//         console.error("❌ Fetch error:", err);
+//         res.status(500).send("Failed to fetch document");
+//     }
+// });
+
+app.get("/document/fetch/:docId", async (req, res) => {
+    const docInfo = documentStore[req.params.docId];
+    
+    if (!docInfo) {
+        console.log("❌ Document not found in store");
+        return res.status(404).send("Not found");
+    }
+
+    if (isLinkExpired(docInfo.createdAt)) {
+        console.log("⚠️ Link expired for docId:", req.params.docId);
+        return res.status(403).send("Link expired");
+    }
+
+    try {
+        console.log("=== FETCH ENDPOINT HIT ===");
+        console.log("DocId:", req.params.docId);
+        console.log("Stored fileName:", docInfo.fileName);
+
+        let fileBuffer;
+        
+        // ✅ Try the stored fileName first
+        try {
+            console.log("📥 Trying fileName:", docInfo.fileName);
+            fileBuffer = await downloadDoc(docInfo.fileName);
+            console.log("✅ Fetched using stored fileName");
+        } catch (err) {
+            // ✅ Fallback to legacy naming (just docId)
+            console.log("⚠️ Stored fileName failed, trying legacy docId:", req.params.docId);
+            try {
+                fileBuffer = await downloadDoc(req.params.docId);
+                console.log("✅ Fetched using legacy docId");
+                
+                // Update stored fileName for future
+                documentStore[req.params.docId].fileName = req.params.docId;
+            } catch (legacyErr) {
+                console.error("❌ Both attempts failed");
+                throw new Error("Document not found in storage");
+            }
+        }
+
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.setHeader("Cache-Control", "no-cache");
         
-        res.send(cleanBuffer);
+        res.send(fileBuffer);
         console.log("✅ Document sent for viewing");
 
     } catch (err) {
-        console.error("❌ Fetch error:", err);
+        console.error("=== FETCH ERROR ===");
+        console.error("Error:", err.message);
         res.status(500).send("Failed to fetch document");
     }
 });
-
-
 
 // app.post('/document/finalize/:docId', async (req, res) => {
 //     try {

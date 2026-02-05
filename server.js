@@ -717,7 +717,11 @@ app.post('/document/finalize/:docId', async (req, res) => {
         if (docInfo.isUploadedDoc) {
             console.log("📄 Processing uploaded document with signatures");
 
-            const originalBuffer = await downloadDoc(docInfo.fileName);
+            //const originalBuffer = await downloadDoc(docInfo.fileName);
+            const originalBuffer = await downloadDoc(
+  docInfo.templateFileName
+);
+
             const zip = new PizZip(originalBuffer);
             const imageModule = new ImageModule(imageOptions);
 
@@ -742,6 +746,8 @@ app.post('/document/finalize/:docId', async (req, res) => {
                 type: "nodebuffer",
                 compression: "DEFLATE",
             });
+
+            
 
         } else {
             // ✅ Handle generated documents
@@ -778,6 +784,19 @@ app.post('/document/finalize/:docId', async (req, res) => {
                 type: "nodebuffer",
                 compression: "DEFLATE",
             });
+
+            // 🔁 Upload latest rendered document (partial or full)
+const renderedName = `agreements/${docId}_rendered.docx`;
+
+await uploadDoc(
+    signedBuffer,
+    renderedName,
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+);
+
+// Track latest rendered file (DO NOT use this as a template)
+docInfo.renderedFileName = renderedName;
+
         }
 
         console.log("✅ Signed buffer generated. Size:", signedBuffer.length);
@@ -1089,21 +1108,47 @@ app.post("/documents/upload", upload.single('file'), async (req, res) => {
         console.log("✅ Uploaded to Supabase:", fileName);
 
         // ✅ Store metadata with BOTH emails and signature tracking
+        // documentStore[docId] = {
+        //     status: "pending", // ✅ Keep as pending
+        //     fileName,
+        //     clientEmail: clientEmail,
+        //     companyEmail: companyEmail, // ✅ Add company email
+        //     originalFileName: req.file.originalname,
+        //     uploadedAt: new Date(),
+        //     createdAt: new Date(),
+        //     isUploadedDoc: true,
+        //     signatures: {       // ✅ Track both signatures
+        //         client: null,
+        //         company: null,
+        //     },
+        //     signedBy: [],       // ✅ Track who signed
+        // };
+
         documentStore[docId] = {
-            status: "pending", // ✅ Keep as pending
-            fileName,
-            clientEmail: clientEmail,
-            companyEmail: companyEmail, // ✅ Add company email
-            originalFileName: req.file.originalname,
-            uploadedAt: new Date(),
-            createdAt: new Date(),
-            isUploadedDoc: true,
-            signatures: {       // ✅ Track both signatures
-                client: null,
-                company: null,
-            },
-            signedBy: [],       // ✅ Track who signed
-        };
+  status: "pending",
+
+  // 🔒 NEVER overwritten
+  templateFileName: fileName,  
+
+  // 🔁 Can change as signatures are added
+  renderedFileName: null,
+
+  clientEmail,
+  companyEmail,
+  originalFileName: req.file.originalname,
+
+  uploadedAt: new Date(),
+  createdAt: new Date(),
+  isUploadedDoc: true,
+
+  signatures: {
+    client: null,
+    company: null,
+  },
+
+  signedBy: [],
+};
+
 
         // ✅ Create signing links for BOTH parties
         const clientSigningLink = `https://leadway-sales-transformation-team.vercel.app/sign/${docId}?signer=client`;

@@ -97,43 +97,14 @@ const documentStore = {};
 })();
 
 const imageOptions = {
-//   getImage: (tagValue) => {
-//     if (!tagValue) return null;
-
-//     const base64 = tagValue.replace(/^data:image\/\w+;base64,/, "");
-//     return Buffer.from(base64, "base64");
-//   },
-
-
-  //getSize: () => [150, 50], // adjust if needed
-  centered: false,
-  
   getImage: (tagValue) => {
-    // If null or undefined, return null (tells module to skip)
-    if (!tagValue) {
-      return null;
-    }
-    
-    // If it's a string starting with "{", it's a preserved placeholder - skip it
-    if (typeof tagValue === 'string' && tagValue.startsWith('{')) {
-      return null;
-    }
+    if (!tagValue) return null;
 
-    // Process real Base64 image
     const base64 = tagValue.replace(/^data:image\/\w+;base64,/, "");
     return Buffer.from(base64, "base64");
   },
 
-  getSize: () => [150, 50],
-  
- 
-  getProps: (img, tagValue, tagName) => {
-    // If no image, preserve the placeholder tag
-    if (!img) {
-      return null;
-    }
-    return {};
-  }
+  getSize: () => [150, 50], // adjust if needed
 };
 
 const imageModule = new ImageModule(imageOptions);
@@ -451,126 +422,73 @@ const sendEmailWithSigningLink = async (formData, signingLink) => {
     }
 };
 
-//latest
-// app.get("/document/fetch/:docId", async (req, res) => {
-//   console.log("endpoint hit")
-//     console.log("DocId:", req.params.docId);
-//     const docInfo = documentStore[req.params.docId];
-//     if (!docInfo) return res.status(404).send("Not found");
-
-// if (isLinkExpired(docInfo.createdAt)) {
-//         console.log("⚠️ Link expired for docId:", req.params.docId);
-//         return res.status(403).send("This standard contract link has expired (3-day duration).");
-//     }
-
-    
-//     try {
-//         console.log("📥 Fetching document for viewing:", req.params.docId);
-
-//         const fileBuffer = await downloadDoc(docInfo.fileName);
-//         const zip = new PizZip(fileBuffer);
-
-//         const imageModule = new ImageModule(imageOptions);
-
-//         const doc = new Docxtemplater(zip, {
-//             modules: [imageModule],
-//             paragraphLoop: true,
-//             linebreaks: true,
-//             // nullGetter: () => null,
-//             nullGetter(part) {
-//         if (!part.value) {
-//             return "{" + part.raw + "}"; 
-//         }
-//         return "";
-//     }
-//         });
-
-//         const signatures = docInfo.signatures || { client: null, company: null };
-        
-//         doc.setData({
-//             signature_left: signatures.client,
-//             signature_right: signatures.company,
-//         });
-
-
-//         doc.render();
-
-//         const cleanBuffer = doc.getZip().generate({
-//             type: "nodebuffer",
-//             compression: "DEFLATE",
-//         });
-
-//         // Set headers for viewing (not downloading)
-//         res.setHeader(
-//             "Content-Type",
-//             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-//         );
-//         res.setHeader("Content-Encoding", "identity");
-//         res.setHeader("Access-Control-Allow-Origin", "*");
-//         res.setHeader("Cache-Control", "no-cache");
-        
-//         res.send(cleanBuffer);
-//         console.log("✅ Document sent for viewing");
-
-//     } catch (err) {
-//         console.error("❌ Fetch error:", err);
-//         res.status(500).send("Failed to fetch document");
-//     }
-// });
-
 app.get("/document/fetch/:docId", async (req, res) => {
+  console.log("endpoint hit")
+    console.log("DocId:", req.params.docId);
     const docInfo = documentStore[req.params.docId];
-    
-    if (!docInfo) {
-        console.log("❌ Document not found in store");
-        return res.status(404).send("Not found");
-    }
+    if (!docInfo) return res.status(404).send("Not found");
 
-    if (isLinkExpired(docInfo.createdAt)) {
+if (isLinkExpired(docInfo.createdAt)) {
         console.log("⚠️ Link expired for docId:", req.params.docId);
-        return res.status(403).send("Link expired");
+        return res.status(403).send("This standard contract link has expired (3-day duration).");
     }
 
+    
     try {
-        console.log("=== FETCH ENDPOINT HIT ===");
-        console.log("DocId:", req.params.docId);
-        console.log("Stored fileName:", docInfo.fileName);
+        console.log("📥 Fetching document for viewing:", req.params.docId);
 
-        let fileBuffer;
-        
-        // ✅ Try the stored fileName first
-        try {
-            console.log("📥 Trying fileName:", docInfo.fileName);
-            fileBuffer = await downloadDoc(docInfo.fileName);
-            console.log("✅ Fetched using stored fileName");
-        } catch (err) {
-            // ✅ Fallback to legacy naming (just docId)
-            console.log("⚠️ Stored fileName failed, trying legacy docId:", req.params.docId);
-            try {
-                fileBuffer = await downloadDoc(req.params.docId);
-                console.log("✅ Fetched using legacy docId");
-                
-                // Update stored fileName for future
-                documentStore[req.params.docId].fileName = req.params.docId;
-            } catch (legacyErr) {
-                console.error("❌ Both attempts failed");
-                throw new Error("Document not found in storage");
-            }
+        const fileBuffer = await downloadDoc(docInfo.fileName);
+        const zip = new PizZip(fileBuffer);
+
+        const imageModule = new ImageModule(imageOptions);
+
+        const doc = new Docxtemplater(zip, {
+            modules: [imageModule],
+            paragraphLoop: true,
+            linebreaks: true,
+            // nullGetter: () => null,
+            nullGetter(part) {
+        if (!part.value) {
+            return "{" + part.raw + "}"; 
         }
+        return "";
+    }
+        });
 
-        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        const signatures = docInfo.signatures || { client: null, company: null };
+        
+        doc.setData({
+            signature_left: signatures.client,
+            signature_right: signatures.company,
+        });
+
+
+        doc.render();
+
+        const cleanBuffer = doc.getZip().generate({
+            type: "nodebuffer",
+            compression: "DEFLATE",
+        });
+
+        // Set headers for viewing (not downloading)
+        res.setHeader(
+            "Content-Type",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        );
+        res.setHeader("Content-Encoding", "identity");
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.setHeader("Cache-Control", "no-cache");
         
-        res.send(fileBuffer);
+        res.send(cleanBuffer);
         console.log("✅ Document sent for viewing");
 
     } catch (err) {
-        console.error("=== FETCH ERROR ===");
-        console.error("Error:", err.message);
+        console.error("❌ Fetch error:", err);
         res.status(500).send("Failed to fetch document");
     }
 });
+
+
 
 // app.post('/document/finalize/:docId', async (req, res) => {
 //     try {
@@ -726,365 +644,149 @@ app.get("/document/fetch/:docId", async (req, res) => {
 //     }
 // });
 
-//latest
-// app.post('/document/finalize/:docId', async (req, res) => {
-//     try {
-//         const { signature, signerType } = req.body; // ✅ Add signerType
-//         const { docId } = req.params;
-//         const docInfo = documentStore[docId];
-
-//         // ✅ Basic validation
-//         if (!docInfo) {
-//             return res.status(404).json({ 
-//                 error: 'Document not found.' 
-//             });
-//         }
-
-//         if (isLinkExpired(docInfo.createdAt)) {
-//             return res.status(403).json({ 
-//                 error: 'This document link has expired.' 
-//             });
-//         }
-
-//         // ✅ Don't reject if partially signed
-//         if (docInfo.status === 'fully_signed') {
-//             return res.status(400).json({ 
-//                 error: 'This document has already been fully signed by both parties.' 
-//             });
-//         }
-
-//         console.log("=== FINALIZE STARTED ===");
-//         console.log("Document ID:", docId);
-//         console.log("Signer Type:", signerType);
-//         console.log("Is uploaded doc:", docInfo.isUploadedDoc);
-//         console.log("Signature received:", signature ? "YES" : "NO");
-
-//         // ✅ Initialize signatures object if it doesn't exist
-//         if (!docInfo.signatures) {
-//             docInfo.signatures = { client: null, company: null };
-//         }
-
-//         // ✅ Check if this person already signed
-//         if (signerType === 'client' && docInfo.signatures.client) {
-//             return res.status(400).json({
-//                 error: "You have already signed this document."
-//             });
-//         }
-
-//         if (signerType === 'company' && docInfo.signatures.company) {
-//             return res.status(400).json({
-//                 error: "You have already signed this document."
-//             });
-//         }
-
-//         // ✅ Save this person's signature
-//         if (signerType === 'client') {
-//             console.log("📝 Saving CLIENT signature");
-//             docInfo.signatures.client = signature;
-//             if (!docInfo.signedBy) docInfo.signedBy = [];
-//             docInfo.signedBy.push('client');
-//         } else if (signerType === 'company') {
-//             console.log("📝 Saving COMPANY signature");
-//             docInfo.signatures.company = signature;
-//             if (!docInfo.signedBy) docInfo.signedBy = [];
-//             docInfo.signedBy.push('company');
-//         }
-
-//         let signedBuffer;
-
-//         // ✅ Handle uploaded documents
-//         if (docInfo.isUploadedDoc) {
-//             console.log("📄 Processing uploaded document with signatures");
-
-//             const originalBuffer = await downloadDoc(docInfo.fileName);
-//             const zip = new PizZip(originalBuffer);
-//             const imageModule = new ImageModule(imageOptions);
-
-//             const doc = new Docxtemplater(zip, {
-//                 modules: [imageModule],
-//                 paragraphLoop: true,
-//                 linebreaks: true,
-//                 // nullGetter: () => "",
-// nullGetter(part) {
-//             // For image placeholders, return the raw tag to preserve it
-//             if (part.module === 'open-xml-templating/docxtemplater-image-module') {
-//                 return `{%${part.value}}`;
-//             }
-//             return "";
-//         },
-
-//             });
-
-//             //✅ Set BOTH signatures (one might be null)
-//             doc.setData({
-//                 signature_left: docInfo.signatures.client || "",
-//                 signature_right: docInfo.signatures.company || "",
-//             });
-
-           
-
-//             doc.render();
-
-//             signedBuffer = doc.getZip().generate({
-//                 type: "nodebuffer",
-//                 compression: "DEFLATE",
-//             });
-
-//         } else {
-//             // ✅ Handle generated documents
-//             console.log("📄 Processing generated document with signatures");
-
-//             const content = await fs.readFile(
-//                 path.join(__dirname, 'template.docx'), 
-//                 'binary'
-//             );
-//             const zip = new PizZip(content);
-//             const imageModule = new ImageModule(imageOptions);
-
-//             const doc = new Docxtemplater(zip, {
-//                 modules: [imageModule],
-//                 paragraphLoop: true,
-//                 linebreaks: true,
-//                 //nullGetter: () => "",
-//                nullGetter(part) {
-//             if (part.module === 'open-xml-templating/docxtemplater-image-module') {
-//                 return `{%${part.value}}`;
-//             }
-//             return "";
-//         },
-    
-//             });
-
-//             // ✅ Set BOTH signatures (one might be null)
-//             doc.setData({
-//                 ...docInfo.formData,
-//                 ...docInfo.benefitsTable,
-//                 ...docInfo.benefitsTableTwo,
-//                 startDateFormatted: formatAgreementDate(docInfo.formData.startDate), 
-//                 endDateFormatted: formatAgreementDate(docInfo.formData.endDate), 
-//                 signature_left: docInfo.signatures.client ,
-//                 signature_right: docInfo.signatures.company ,
-//             });
-
-//             doc.render();
-
-//             signedBuffer = doc.getZip().generate({
-//                 type: "nodebuffer",
-//                 compression: "DEFLATE",
-//             });
-//         }
-
-//         console.log("✅ Signed buffer generated. Size:", signedBuffer.length);
-
-//         // ✅ Check if BOTH parties have signed
-//         const bothSigned = docInfo.signatures.client && docInfo.signatures.company;
-
-//         if (bothSigned) {
-//             console.log("🎉 BOTH PARTIES HAVE SIGNED!");
-
-//             // Upload final signed document
-//             const signedFileName = await uploadDoc(
-//                 signedBuffer,
-//                 `${docId}_final_signed`,
-//                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-//             );
-//             console.log("✅ Final signed document uploaded:", signedFileName);
-
-//             // ✅ Send email to BOTH parties with attachment
-//             try {
-//                 if (docInfo.isUploadedDoc) {
-//                     // For uploaded docs
-//                     await sendFullySignedDocument(
-//                         docInfo.clientEmail,
-//                         docInfo.companyEmail,
-//                         signedBuffer,
-//                         docInfo.originalFileName
-//                     );
-//                 } else {
-//                     // For generated docs
-//                     await sendFullySignedDocument(
-//                         docInfo.formData?.groupContactPersonEmail,
-//                         docInfo.formData?.leadwayGroupEmailCC,
-//                         signedBuffer,
-//                         docInfo.formData?.companyName || 'Company'
-//                     );
-//                 }
-//                 console.log("✅ Email sent to BOTH parties");
-//             } catch (emailError) {
-//                 console.error("⚠️ Email failed:", emailError);
-//             }
-
-//             // Update status
-//             documentStore[docId].status = 'fully_signed';
-//             documentStore[docId].signedFileName = signedFileName;
-//             documentStore[docId].fullySignedAt = new Date();
-
-//             console.log("=== FINALIZE COMPLETE - FULLY SIGNED ===");
-
-//             // Create download filename
-//             const displayName = docInfo.isUploadedDoc
-//                 ? `Fully_Signed_${docInfo.originalFileName}`
-//                 : `${docInfo.formData?.companyName || 'Company'}_Fully_Signed_Contract.docx`;
-
-//             // Send fully signed document for download
-//             res.setHeader(
-//                 'Content-Type', 
-//                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-//             );
-//             res.setHeader(
-//                 'Content-Disposition', 
-//                 `attachment; filename="${displayName}"`
-//             );
-//             res.setHeader('Access-Control-Allow-Origin', '*');
-            
-//             res.send(signedBuffer);
-
-//             console.log("✅ Fully signed document sent for download:", displayName);
-
-//         } else {
-//             console.log("📝 Only ONE signature recorded. Waiting for other party.");
-
-//             // ✅ Upload partially signed document (overwrites original)
-//             await uploadDoc(
-//                 signedBuffer,
-//                 docId, // Same filename - overwrites
-//                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-//             );
-//             console.log("✅ Partially signed document updated in Supabase");
-
-//             // Update status
-//             documentStore[docId].status = 'partially_signed';
-
-//             // ✅ Send reminder to the OTHER party
-//             try {
-//                 if (signerType === 'client' && !docInfo.signatures.company) {
-//                     // Client signed, remind company
-//                     const companyEmail = docInfo.isUploadedDoc 
-//                         ? docInfo.companyEmail 
-//                         : docInfo.formData?.leadwayGroupEmailCC;
-                    
-//                     if (companyEmail) {
-//                         await sendReminderToCompany(companyEmail, docId);
-//                         console.log("✅ Reminder sent to company");
-//                     }
-//                 } else if (signerType === 'company' && !docInfo.signatures.client) {
-//                     // Company signed, remind client
-//                     const clientEmail = docInfo.isUploadedDoc 
-//                         ? docInfo.clientEmail 
-//                         : docInfo.formData?.groupContactPersonEmail;
-                    
-//                     if (clientEmail) {
-//                         await sendReminderToClient(clientEmail, docId);
-//                         console.log("✅ Reminder sent to client");
-//                     }
-//                 }
-//             } catch (reminderError) {
-//                 console.error("⚠️ Reminder email failed:", reminderError);
-//             }
-
-//             console.log("=== FINALIZE COMPLETE - PARTIALLY SIGNED ===");
-
-//             // ✅ Return JSON response (not file download)
-//             res.status(200).json({
-//                 success: true,
-//                 message: "Your signature has been recorded. Waiting for the other party to sign.",
-//                 status: "partially_signed",
-//                 signatures: {
-//                     client: !!docInfo.signatures.client,
-//                     company: !!docInfo.signatures.company,
-//                 }
-//             });
-//         }
-
-//     } catch (err) {
-//         console.error("=== FINALIZE ERROR ===");
-//         console.error("Error:", err.message);
-//         console.error("Stack:", err.stack);
-//         res.status(500).json({ 
-//             error: "Document generation failed", 
-//             details: err.message,
-//         });
-//     }
-// });
-
 
 app.post('/document/finalize/:docId', async (req, res) => {
     try {
-        const { signature, signerType } = req.body;
+        const { signature, signerType } = req.body; // ✅ Add signerType
         const { docId } = req.params;
         const docInfo = documentStore[docId];
 
-        // Validation...
+        // ✅ Basic validation
         if (!docInfo) {
-            return res.status(404).json({ error: 'Document not found.' });
+            return res.status(404).json({ 
+                error: 'Document not found.' 
+            });
+        }
+
+        if (isLinkExpired(docInfo.createdAt)) {
+            return res.status(403).json({ 
+                error: 'This document link has expired.' 
+            });
+        }
+
+        // ✅ Don't reject if partially signed
+        if (docInfo.status === 'fully_signed') {
+            return res.status(400).json({ 
+                error: 'This document has already been fully signed by both parties.' 
+            });
         }
 
         console.log("=== FINALIZE STARTED ===");
         console.log("Document ID:", docId);
         console.log("Signer Type:", signerType);
+        console.log("Is uploaded doc:", docInfo.isUploadedDoc);
+        console.log("Signature received:", signature ? "YES" : "NO");
 
-        // Initialize signatures
+        // ✅ Initialize signatures object if it doesn't exist
         if (!docInfo.signatures) {
             docInfo.signatures = { client: null, company: null };
         }
 
-        // Check if already signed
+        // ✅ Check if this person already signed
         if (signerType === 'client' && docInfo.signatures.client) {
-            return res.status(400).json({ error: "You have already signed this document." });
-        }
-        if (signerType === 'company' && docInfo.signatures.company) {
-            return res.status(400).json({ error: "You have already signed this document." });
+            return res.status(400).json({
+                error: "You have already signed this document."
+            });
         }
 
-        // Save signature
+        if (signerType === 'company' && docInfo.signatures.company) {
+            return res.status(400).json({
+                error: "You have already signed this document."
+            });
+        }
+
+        // ✅ Save this person's signature
         if (signerType === 'client') {
             console.log("📝 Saving CLIENT signature");
             docInfo.signatures.client = signature;
+            if (!docInfo.signedBy) docInfo.signedBy = [];
+            docInfo.signedBy.push('client');
         } else if (signerType === 'company') {
             console.log("📝 Saving COMPANY signature");
             docInfo.signatures.company = signature;
+            if (!docInfo.signedBy) docInfo.signedBy = [];
+            docInfo.signedBy.push('company');
         }
 
-        // ✅ ALWAYS fetch ORIGINAL document (not the partially signed one)
-        console.log("📄 Fetching ORIGINAL document:", docInfo.fileName);
-        const originalBuffer = await downloadDoc(docInfo.fileName);
-        
-        const zip = new PizZip(originalBuffer);
-        const imageModule = new ImageModule(imageOptions);
+        let signedBuffer;
 
-        const doc = new Docxtemplater(zip, {
-            modules: [imageModule],
-            paragraphLoop: true,
-            linebreaks: true,
-            nullGetter: () => "",
-        });
-
+        // ✅ Handle uploaded documents
         if (docInfo.isUploadedDoc) {
-            doc.setData({
-                signature_left: docInfo.signatures.client || "",
-                signature_right: docInfo.signatures.company || "",
+            console.log("📄 Processing uploaded document with signatures");
+
+            const originalBuffer = await downloadDoc(docInfo.fileName);
+            const zip = new PizZip(originalBuffer);
+            const imageModule = new ImageModule(imageOptions);
+
+            const doc = new Docxtemplater(zip, {
+                modules: [imageModule],
+                paragraphLoop: true,
+                linebreaks: true,
+                nullGetter: () => "",
             });
+
+            // ✅ Set BOTH signatures (one might be null)
+            // doc.setData({
+            //     signature_left: docInfo.signatures.client || "",
+            //     signature_right: docInfo.signatures.company || "",
+            // });
+
+            doc.setData({
+   
+    
+    // Logic: If signature exists, use it. 
+    // If NOT, send the tag name back so it remains in the doc.
+    signature_left: docInfo.signatures.client ? docInfo.signatures.client : "{%signature_left}",
+    signature_right: docInfo.signatures.company ? docInfo.signatures.company : "{%signature_right}",
+});
+
+            doc.render();
+
+            signedBuffer = doc.getZip().generate({
+                type: "nodebuffer",
+                compression: "DEFLATE",
+            });
+
         } else {
+            // ✅ Handle generated documents
+            console.log("📄 Processing generated document with signatures");
+
+            const content = await fs.readFile(
+                path.join(__dirname, 'template.docx'), 
+                'binary'
+            );
+            const zip = new PizZip(content);
+            const imageModule = new ImageModule(imageOptions);
+
+            const doc = new Docxtemplater(zip, {
+                modules: [imageModule],
+                paragraphLoop: true,
+                linebreaks: true,
+                nullGetter: () => "",
+            });
+
+            // ✅ Set BOTH signatures (one might be null)
             doc.setData({
                 ...docInfo.formData,
                 ...docInfo.benefitsTable,
                 ...docInfo.benefitsTableTwo,
-                startDateFormatted: formatAgreementDate(docInfo.formData.startDate),
-                endDateFormatted: formatAgreementDate(docInfo.formData.endDate),
+                startDateFormatted: formatAgreementDate(docInfo.formData.startDate), 
+                endDateFormatted: formatAgreementDate(docInfo.formData.endDate), 
                 signature_left: docInfo.signatures.client || "",
                 signature_right: docInfo.signatures.company || "",
             });
+
+            doc.render();
+
+            signedBuffer = doc.getZip().generate({
+                type: "nodebuffer",
+                compression: "DEFLATE",
+            });
         }
-
-        doc.render();
-
-        const signedBuffer = doc.getZip().generate({
-            type: "nodebuffer",
-            compression: "DEFLATE",
-        });
 
         console.log("✅ Signed buffer generated. Size:", signedBuffer.length);
 
+        // ✅ Check if BOTH parties have signed
         const bothSigned = docInfo.signatures.client && docInfo.signatures.company;
 
         if (bothSigned) {
@@ -1096,62 +798,103 @@ app.post('/document/finalize/:docId', async (req, res) => {
                 `${docId}_final_signed`,
                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
             );
+            console.log("✅ Final signed document uploaded:", signedFileName);
 
-            // Send emails
-            if (docInfo.isUploadedDoc) {
-                await sendFullySignedDocument(
-                    docInfo.clientEmail,
-                    docInfo.companyEmail,
-                    signedBuffer,
-                    docInfo.originalFileName
-                );
-            } else {
-                await sendFullySignedDocument(
-                    docInfo.formData?.groupContactPersonEmail,
-                    docInfo.formData?.leadwayGroupEmailCC,
-                    signedBuffer,
-                    docInfo.formData?.companyName || 'Company'
-                );
+            // ✅ Send email to BOTH parties with attachment
+            try {
+                if (docInfo.isUploadedDoc) {
+                    // For uploaded docs
+                    await sendFullySignedDocument(
+                        docInfo.clientEmail,
+                        docInfo.companyEmail,
+                        signedBuffer,
+                        docInfo.originalFileName
+                    );
+                } else {
+                    // For generated docs
+                    await sendFullySignedDocument(
+                        docInfo.formData?.groupContactPersonEmail,
+                        docInfo.formData?.leadwayGroupEmailCC,
+                        signedBuffer,
+                        docInfo.formData?.companyName || 'Company'
+                    );
+                }
+                console.log("✅ Email sent to BOTH parties");
+            } catch (emailError) {
+                console.error("⚠️ Email failed:", emailError);
             }
 
+            // Update status
             documentStore[docId].status = 'fully_signed';
             documentStore[docId].signedFileName = signedFileName;
+            documentStore[docId].fullySignedAt = new Date();
 
+            console.log("=== FINALIZE COMPLETE - FULLY SIGNED ===");
+
+            // Create download filename
             const displayName = docInfo.isUploadedDoc
                 ? `Fully_Signed_${docInfo.originalFileName}`
                 : `${docInfo.formData?.companyName || 'Company'}_Fully_Signed_Contract.docx`;
 
-            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-            res.setHeader('Content-Disposition', `attachment; filename="${displayName}"`);
+            // Send fully signed document for download
+            res.setHeader(
+                'Content-Type', 
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            );
+            res.setHeader(
+                'Content-Disposition', 
+                `attachment; filename="${displayName}"`
+            );
             res.setHeader('Access-Control-Allow-Origin', '*');
             
             res.send(signedBuffer);
 
+            console.log("✅ Fully signed document sent for download:", displayName);
+
         } else {
             console.log("📝 Only ONE signature recorded. Waiting for other party.");
 
-            // ✅ Upload preview with different filename (optional)
+            // ✅ Upload partially signed document (overwrites original)
             await uploadDoc(
                 signedBuffer,
-                `${docId}_preview`,  // Different from original
+                docId, // Same filename - overwrites
                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
             );
+            console.log("✅ Partially signed document updated in Supabase");
 
+            // Update status
             documentStore[docId].status = 'partially_signed';
 
-            // Send reminders...
-            if (signerType === 'client' && !docInfo.signatures.company) {
-                const companyEmail = docInfo.isUploadedDoc 
-                    ? docInfo.companyEmail 
-                    : docInfo.formData?.leadwayGroupEmailCC;
-                if (companyEmail) await sendReminderToCompany(companyEmail, docId);
-            } else if (signerType === 'company' && !docInfo.signatures.client) {
-                const clientEmail = docInfo.isUploadedDoc 
-                    ? docInfo.clientEmail 
-                    : docInfo.formData?.groupContactPersonEmail;
-                if (clientEmail) await sendReminderToClient(clientEmail, docId);
+            // ✅ Send reminder to the OTHER party
+            try {
+                if (signerType === 'client' && !docInfo.signatures.company) {
+                    // Client signed, remind company
+                    const companyEmail = docInfo.isUploadedDoc 
+                        ? docInfo.companyEmail 
+                        : docInfo.formData?.leadwayGroupEmailCC;
+                    
+                    if (companyEmail) {
+                        await sendReminderToCompany(companyEmail, docId);
+                        console.log("✅ Reminder sent to company");
+                    }
+                } else if (signerType === 'company' && !docInfo.signatures.client) {
+                    // Company signed, remind client
+                    const clientEmail = docInfo.isUploadedDoc 
+                        ? docInfo.clientEmail 
+                        : docInfo.formData?.groupContactPersonEmail;
+                    
+                    if (clientEmail) {
+                        await sendReminderToClient(clientEmail, docId);
+                        console.log("✅ Reminder sent to client");
+                    }
+                }
+            } catch (reminderError) {
+                console.error("⚠️ Reminder email failed:", reminderError);
             }
 
+            console.log("=== FINALIZE COMPLETE - PARTIALLY SIGNED ===");
+
+            // ✅ Return JSON response (not file download)
             res.status(200).json({
                 success: true,
                 message: "Your signature has been recorded. Waiting for the other party to sign.",
@@ -1173,7 +916,6 @@ app.post('/document/finalize/:docId', async (req, res) => {
         });
     }
 });
-
 app.get("/health", (req, res) => {
     res.status(200).send("Server is alive and well");
 });
@@ -1347,14 +1089,13 @@ app.post("/documents/upload", upload.single('file'), async (req, res) => {
         console.log("📧 Company email:", companyEmail);
 
         // Upload to Supabase
-      //  const fileName = await uploadDoc(fileBuffer, docId);
-          const originalFileName = await uploadDoc(fileBuffer, `${docId}_original`);
-        console.log("✅ Uploaded to Supabase:", originalFileName);
+        const fileName = await uploadDoc(fileBuffer, docId);
+        console.log("✅ Uploaded to Supabase:", fileName);
 
         // ✅ Store metadata with BOTH emails and signature tracking
         documentStore[docId] = {
             status: "pending", // ✅ Keep as pending
-            fileName: `${docId}_original`,
+            fileName,
             clientEmail: clientEmail,
             companyEmail: companyEmail, // ✅ Add company email
             originalFileName: req.file.originalname,

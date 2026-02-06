@@ -422,71 +422,71 @@ const sendEmailWithSigningLink = async (formData, signingLink) => {
     }
 };
 
-// app.get("/document/fetch/:docId", async (req, res) => {
-//   console.log("endpoint hit")
-//     console.log("DocId:", req.params.docId);
-//     const docInfo = documentStore[req.params.docId];
-//     if (!docInfo) return res.status(404).send("Not found");
+app.get("/document/fetch/:docId", async (req, res) => {
+  console.log("endpoint hit")
+    console.log("DocId:", req.params.docId);
+    const docInfo = documentStore[req.params.docId];
+    if (!docInfo) return res.status(404).send("Not found");
 
-// if (isLinkExpired(docInfo.createdAt)) {
-//         console.log("⚠️ Link expired for docId:", req.params.docId);
-//         return res.status(403).send("This standard contract link has expired (3-day duration).");
-//     }
+if (isLinkExpired(docInfo.createdAt)) {
+        console.log("⚠️ Link expired for docId:", req.params.docId);
+        return res.status(403).send("This standard contract link has expired (3-day duration).");
+    }
 
     
-//     try {
-//         console.log("📥 Fetching document for viewing:", req.params.docId);
+    try {
+        console.log("📥 Fetching document for viewing:", req.params.docId);
 
-//         const fileBuffer = await downloadDoc(docInfo.fileName);
-//         const zip = new PizZip(fileBuffer);
+        const fileBuffer = await downloadDoc(docInfo.fileName);
+        const zip = new PizZip(fileBuffer);
 
-//         const imageModule = new ImageModule(imageOptions);
+        const imageModule = new ImageModule(imageOptions);
 
-//         const doc = new Docxtemplater(zip, {
-//             modules: [imageModule],
-//             paragraphLoop: true,
-//             linebreaks: true,
-//             // nullGetter: () => null,
-//             nullGetter(part) {
-//         if (!part.value) {
-//             return "{" + part.raw + "}"; 
-//         }
-//         return "";
-//     }
-//         });
+        const doc = new Docxtemplater(zip, {
+            modules: [imageModule],
+            paragraphLoop: true,
+            linebreaks: true,
+            // nullGetter: () => null,
+            nullGetter(part) {
+        if (!part.value) {
+            return "{" + part.raw + "}"; 
+        }
+        return "";
+    }
+        });
 
-//         const signatures = docInfo.signatures || { client: null, company: null };
+        const signatures = docInfo.signatures || { client: null, company: null };
         
-//         doc.setData({
-//             signature_left: signatures.client,
-//             signature_right: signatures.company,
-//         });
+        doc.setData({
+            signature_left: signatures.client,
+            signature_right: signatures.company,
+        });
 
 
-//         doc.render();
+        doc.render();
 
-//         const cleanBuffer = doc.getZip().generate({
-//             type: "nodebuffer",
-//             compression: "DEFLATE",
-//         });
+        const cleanBuffer = doc.getZip().generate({
+            type: "nodebuffer",
+            compression: "DEFLATE",
+        });
 
-//         // Set headers for viewing (not downloading)
-//         res.setHeader(
-//             "Content-Type",
-//             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-//         );
-//         res.setHeader("Content-Encoding", "identity");
-//         res.setHeader("Access-Control-Allow-Origin", "*");
-//         res.setHeader("Cache-Control", "no-cache");
+        // Set headers for viewing (not downloading)
+        res.setHeader(
+            "Content-Type",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        );
+        res.setHeader("Content-Encoding", "identity");
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Cache-Control", "no-cache");
         
-//         res.send(cleanBuffer);
-//         console.log("✅ Document sent for viewing");
+        res.send(cleanBuffer);
+        console.log("✅ Document sent for viewing");
 
-//     } catch (err) {
-//         console.error("❌ Fetch error:", err);
-//         res.status(500).send("Failed to fetch document");
-//     }
-// });
+    } catch (err) {
+        console.error("❌ Fetch error:", err);
+        res.status(500).send("Failed to fetch document");
+    }
+});
 
 
 
@@ -644,77 +644,6 @@ const sendEmailWithSigningLink = async (formData, signingLink) => {
 //     }
 // });
 
-app.get("/document/fetch/:docId", async (req, res) => {
-  console.log("endpoint hit")
-    console.log("DocId:", req.params.docId);
-    const docInfo = documentStore[req.params.docId];
-    if (!docInfo) return res.status(404).send("Not found");
-
-if (isLinkExpired(docInfo.createdAt)) {
-        console.log("⚠️ Link expired for docId:", req.params.docId);
-        return res.status(403).send("This standard contract link has expired (3-day duration).");
-    }
-
-
-    try {
-        console.log("📥 Fetching document for viewing:", req.params.docId);
-
-       const filePath =
-  docInfo.renderedFileName || docInfo.templateFileName;
-
-if (!filePath) {
-  throw new Error("No document file found for this docId");
-}
-
-const fileBuffer = await downloadDoc(filePath);
-
-        const zip = new PizZip(fileBuffer);
-
-        const imageModule = new ImageModule(imageOptions);
-
-        const doc = new Docxtemplater(zip, {
-            modules: [imageModule],
-            paragraphLoop: true,
-            linebreaks: true,
-            // nullGetter: () => null,
-            nullGetter() {
-  return "";
-}
-
-        });
-
-        const signatures = docInfo.signatures || { client: null, company: null };
-
-        doc.setData({
-            signature_left: signatures.client,
-            signature_right: signatures.company,
-        });
-
-
-        doc.render();
-
-        const cleanBuffer = doc.getZip().generate({
-            type: "nodebuffer",
-            compression: "DEFLATE",
-        });
-
-        // Set headers for viewing (not downloading)
-        res.setHeader(
-            "Content-Type",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        );
-        res.setHeader("Content-Encoding", "identity");
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Cache-Control", "no-cache");
-
-        res.send(cleanBuffer);
-        console.log("✅ Document sent for viewing");
-
-    } catch (err) {
-        console.error("❌ Fetch error:", err);
-        res.status(500).send("Failed to fetch document");
-    }
-});
 
 app.post('/document/finalize/:docId', async (req, res) => {
     try {
@@ -785,11 +714,7 @@ app.post('/document/finalize/:docId', async (req, res) => {
         if (docInfo.isUploadedDoc) {
             console.log("📄 Processing uploaded document with signatures");
 
-const sourceFile =
-  docInfo.renderedFileName || docInfo.templateFileName;
-
-const originalBuffer = await downloadDoc(sourceFile);
-
+            const originalBuffer = await downloadDoc(docInfo.fileName);
             const zip = new PizZip(originalBuffer);
             const imageModule = new ImageModule(imageOptions);
 
@@ -807,9 +732,13 @@ const originalBuffer = await downloadDoc(sourceFile);
             // });
 
             doc.setData({
-                signature_left: docInfo.signatures.client || null,
-                signature_right: docInfo.signatures.company || null,
-            });
+   
+    
+    // Logic: If signature exists, use it. 
+    // If NOT, send the tag name back so it remains in the doc.
+    signature_left: docInfo.signatures.client ? docInfo.signatures.client : "{%signature_left}",
+    signature_right: docInfo.signatures.company ? docInfo.signatures.company : "{%signature_right}",
+});
 
             doc.render();
 
@@ -817,17 +746,6 @@ const originalBuffer = await downloadDoc(sourceFile);
                 type: "nodebuffer",
                 compression: "DEFLATE",
             });
-
-
-            const renderedName = `agreements/${docId}_rendered.docx`;
-
-await uploadDoc(
-  signedBuffer,
-  renderedName,
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-);
-
-docInfo.renderedFileName = renderedName;
 
         } else {
             // ✅ Handle generated documents
@@ -864,22 +782,7 @@ docInfo.renderedFileName = renderedName;
                 type: "nodebuffer",
                 compression: "DEFLATE",
             });
-
-
-            const renderedName = `agreements/${docId}_rendered.docx`;
-
-await uploadDoc(
-    signedBuffer,
-    renderedName,
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-);
-
-// Track latest rendered file (DO NOT use this as a template)
-docInfo.renderedFileName = renderedName;
         }
-
-       
-
 
         console.log("✅ Signed buffer generated. Size:", signedBuffer.length);
 
@@ -952,12 +855,11 @@ docInfo.renderedFileName = renderedName;
             console.log("📝 Only ONE signature recorded. Waiting for other party.");
 
             // ✅ Upload partially signed document (overwrites original)
-          await uploadDoc(
-  signedBuffer,
-  docInfo.renderedFileName,
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-);
-
+            await uploadDoc(
+                signedBuffer,
+                docId, // Same filename - overwrites
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            );
             console.log("✅ Partially signed document updated in Supabase");
 
             // Update status
@@ -1192,29 +1094,21 @@ app.post("/documents/upload", upload.single('file'), async (req, res) => {
 
         // ✅ Store metadata with BOTH emails and signature tracking
         documentStore[docId] = {
-            status: "pending",
+            status: "pending", // ✅ Keep as pending
+            fileName,
+            clientEmail: clientEmail,
+            companyEmail: companyEmail, // ✅ Add company email
+            originalFileName: req.file.originalname,
+            uploadedAt: new Date(),
+            createdAt: new Date(),
+            isUploadedDoc: true,
+            signatures: {       // ✅ Track both signatures
+                client: null,
+                company: null,
+            },
+            signedBy: [],       // ✅ Track who signed
+        };
 
-  // 🔒 NEVER overwritten
-  templateFileName: fileName,  
-
-  // 🔁 Can change as signatures are added
-  renderedFileName: null,
-
-  clientEmail,
-  companyEmail,
-  originalFileName: req.file.originalname,
-
-  uploadedAt: new Date(),
-  createdAt: new Date(),
-  isUploadedDoc: true,
-
-  signatures: {
-    client: null,
-    company: null,
-  },
-
-  signedBy: [],
-};
         // ✅ Create signing links for BOTH parties
         const clientSigningLink = `https://leadway-sales-transformation-team.vercel.app/sign/${docId}?signer=client`;
         const companySigningLink = `https://leadway-sales-transformation-team.vercel.app/sign/${docId}?signer=company`;

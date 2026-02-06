@@ -645,34 +645,54 @@ const sendEmailWithSigningLink = async (formData, signingLink) => {
 // });
 
 app.get("/document/fetch/:docId", async (req, res) => {
-    console.log("📥 Fetch endpoint hit");
-    const { docId } = req.params;
+  console.log("endpoint hit")
+    console.log("DocId:", req.params.docId);
+    const docInfo = documentStore[req.params.docId];
+    if (!docInfo) return res.status(404).send("Not found");
 
-    const docInfo = documentStore[docId];
-    if (!docInfo) {
-        return res.status(404).send("Document not found");
+if (isLinkExpired(docInfo.createdAt)) {
+        console.log("⚠️ Link expired for docId:", req.params.docId);
+        return res.status(403).send("This standard contract link has expired (3-day duration).");
     }
 
-    if (isLinkExpired(docInfo.createdAt)) {
-        console.log("⚠️ Link expired for docId:", docId);
-        return res
-            .status(403)
-            .send("This standard contract link has expired (3-day duration).");
-    }
 
     try {
-        // ✅ Always serve the LATEST version
-        const fileToDownload =
-            docInfo.renderedFileName || docInfo.templateFileName;
+        console.log("📥 Fetching document for viewing:", req.params.docId);
 
-        if (!fileToDownload) {
-            throw new Error("No file available to fetch");
+        const fileBuffer = await downloadDoc(docInfo.fileName);
+        const zip = new PizZip(fileBuffer);
+
+        const imageModule = new ImageModule(imageOptions);
+
+        const doc = new Docxtemplater(zip, {
+            modules: [imageModule],
+            paragraphLoop: true,
+            linebreaks: true,
+            // nullGetter: () => null,
+            nullGetter(part) {
+        if (!part.value) {
+            return "{" + part.raw + "}"; 
         }
+        return "";
+    }
+        });
 
-        console.log("📄 Fetching file:", fileToDownload);
+        const signatures = docInfo.signatures || { client: null, company: null };
 
-        const fileBuffer = await downloadDoc(fileToDownload);
+        doc.setData({
+            signature_left: signatures.client,
+            signature_right: signatures.company,
+        });
 
+
+        doc.render();
+
+        const cleanBuffer = doc.getZip().generate({
+            type: "nodebuffer",
+            compression: "DEFLATE",
+        });
+
+        // Set headers for viewing (not downloading)
         res.setHeader(
             "Content-Type",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -681,15 +701,14 @@ app.get("/document/fetch/:docId", async (req, res) => {
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.setHeader("Cache-Control", "no-cache");
 
-        res.send(fileBuffer);
+        res.send(cleanBuffer);
         console.log("✅ Document sent for viewing");
 
     } catch (err) {
-        console.error("❌ Fetch error:", err.message);
+        console.error("❌ Fetch error:", err);
         res.status(500).send("Failed to fetch document");
     }
 });
-
 
 app.post('/document/finalize/:docId', async (req, res) => {
     try {
@@ -760,7 +779,9 @@ app.post('/document/finalize/:docId', async (req, res) => {
         if (docInfo.isUploadedDoc) {
             console.log("📄 Processing uploaded document with signatures");
 
-            const originalBuffer = await downloadDoc(docInfo.fileName);
+            const originalBuffer = await downloadDoc(
+  docInfo.templateFileName
+);
             const zip = new PizZip(originalBuffer);
             const imageModule = new ImageModule(imageOptions);
 
@@ -778,13 +799,9 @@ app.post('/document/finalize/:docId', async (req, res) => {
             // });
 
             doc.setData({
-   
-    
-    // Logic: If signature exists, use it. 
-    // If NOT, send the tag name back so it remains in the doc.
-    signature_left: docInfo.signatures.client ? docInfo.signatures.client : "{%signature_left}",
-    signature_right: docInfo.signatures.company ? docInfo.signatures.company : "{%signature_right}",
-});
+                signature_left: docInfo.signatures.client || null,
+                signature_right: docInfo.signatures.company || null,
+            });
 
             doc.render();
 
@@ -828,7 +845,22 @@ app.post('/document/finalize/:docId', async (req, res) => {
                 type: "nodebuffer",
                 compression: "DEFLATE",
             });
+
+
+            const renderedName = `agreements/${docId}_rendered.docx`;
+
+await uploadDoc(
+    signedBuffer,
+    renderedName,
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+);
+
+// Track latest rendered file (DO NOT use this as a template)
+docInfo.renderedFileName = renderedName;
         }
+
+       
+
 
         console.log("✅ Signed buffer generated. Size:", signedBuffer.length);
 
@@ -1140,21 +1172,29 @@ app.post("/documents/upload", upload.single('file'), async (req, res) => {
 
         // ✅ Store metadata with BOTH emails and signature tracking
         documentStore[docId] = {
-            status: "pending", // ✅ Keep as pending
-            fileName,
-            clientEmail: clientEmail,
-            companyEmail: companyEmail, // ✅ Add company email
-            originalFileName: req.file.originalname,
-            uploadedAt: new Date(),
-            createdAt: new Date(),
-            isUploadedDoc: true,
-            signatures: {       // ✅ Track both signatures
-                client: null,
-                company: null,
-            },
-            signedBy: [],       // ✅ Track who signed
-        };
+            status: "pending",
 
+  // 🔒 NEVER overwritten
+  templateFileName: fileName,  
+
+  // 🔁 Can change as signatures are added
+  renderedFileName: null,
+
+  clientEmail,
+  companyEmail,
+  originalFileName: req.file.originalname,
+
+  uploadedAt: new Date(),
+  createdAt: new Date(),
+  isUploadedDoc: true,
+
+  signatures: {
+    client: null,
+    company: null,
+  },
+
+  signedBy: [],
+};
         // ✅ Create signing links for BOTH parties
         const clientSigningLink = `https://leadway-sales-transformation-team.vercel.app/sign/${docId}?signer=client`;
         const companySigningLink = `https://leadway-sales-transformation-team.vercel.app/sign/${docId}?signer=company`;

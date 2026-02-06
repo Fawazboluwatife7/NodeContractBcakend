@@ -100,12 +100,8 @@ const imageOptions = {
   getImage: (tagValue) => {
     if (!tagValue) return null;
 
-//     if (typeof tagValue !== "string") return null;
-//   if (!tagValue.startsWith("data:image")) return null;
-
-if (typeof tagValue === "string" && tagValue.startsWith("{")) {
-    return null;
-  }
+    if (typeof tagValue !== "string") return null;
+  if (!tagValue.startsWith("data:image")) return null;
 
     const base64 = tagValue.replace(/^data:image\/\w+;base64,/, "");
     return Buffer.from(base64, "base64");
@@ -428,72 +424,72 @@ const sendEmailWithSigningLink = async (formData, signingLink) => {
         throw new Error(`Email API error! Status: ${response.status}, Details: ${errorText}`);
     }
 };
-//latest
-// app.get("/document/fetch/:docId", async (req, res) => {
-//   console.log("endpoint hit")
-//     console.log("DocId:", req.params.docId);
-//     const docInfo = documentStore[req.params.docId];
-//     if (!docInfo) return res.status(404).send("Not found");
 
-// if (isLinkExpired(docInfo.createdAt)) {
-//         console.log("⚠️ Link expired for docId:", req.params.docId);
-//         return res.status(403).send("This standard contract link has expired (3-day duration).");
-//     }
+app.get("/document/fetch/:docId", async (req, res) => {
+  console.log("endpoint hit")
+    console.log("DocId:", req.params.docId);
+    const docInfo = documentStore[req.params.docId];
+    if (!docInfo) return res.status(404).send("Not found");
+
+if (isLinkExpired(docInfo.createdAt)) {
+        console.log("⚠️ Link expired for docId:", req.params.docId);
+        return res.status(403).send("This standard contract link has expired (3-day duration).");
+    }
 
     
-//     try {
-//         console.log("📥 Fetching document for viewing:", req.params.docId);
+    try {
+        console.log("📥 Fetching document for viewing:", req.params.docId);
 
-//         const fileBuffer = await downloadDoc(docInfo.fileName);
-//         const zip = new PizZip(fileBuffer);
+        const fileBuffer = await downloadDoc(docInfo.fileName);
+        const zip = new PizZip(fileBuffer);
 
-//         const imageModule = new ImageModule(imageOptions);
+        const imageModule = new ImageModule(imageOptions);
 
-//         const doc = new Docxtemplater(zip, {
-//             modules: [imageModule],
-//             paragraphLoop: true,
-//             linebreaks: true,
-//             // nullGetter: () => null,
-//             nullGetter(part) {
-//         if (!part.value) {
-//             return "{" + part.raw + "}"; 
-//         }
-//         return "";
-//     }
-//         });
+        const doc = new Docxtemplater(zip, {
+            modules: [imageModule],
+            paragraphLoop: true,
+            linebreaks: true,
+            // nullGetter: () => null,
+            nullGetter(part) {
+        if (!part.value) {
+            return "{" + part.raw + "}"; 
+        }
+        return "";
+    }
+        });
 
-//         const signatures = docInfo.signatures || { client: null, company: null };
+        const signatures = docInfo.signatures || { client: null, company: null };
         
-//         doc.setData({
-//             signature_left: signatures.client,
-//             signature_right: signatures.company,
-//         });
+        doc.setData({
+            signature_left: signatures.client,
+            signature_right: signatures.company,
+        });
 
 
-//         doc.render();
+        doc.render();
 
-//         const cleanBuffer = doc.getZip().generate({
-//             type: "nodebuffer",
-//             compression: "DEFLATE",
-//         });
+        const cleanBuffer = doc.getZip().generate({
+            type: "nodebuffer",
+            compression: "DEFLATE",
+        });
 
-//         // Set headers for viewing (not downloading)
-//         res.setHeader(
-//             "Content-Type",
-//             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-//         );
-//         res.setHeader("Content-Encoding", "identity");
-//         res.setHeader("Access-Control-Allow-Origin", "*");
-//         res.setHeader("Cache-Control", "no-cache");
+        // Set headers for viewing (not downloading)
+        res.setHeader(
+            "Content-Type",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        );
+        res.setHeader("Content-Encoding", "identity");
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Cache-Control", "no-cache");
         
-//         res.send(cleanBuffer);
-//         console.log("✅ Document sent for viewing");
+        res.send(cleanBuffer);
+        console.log("✅ Document sent for viewing");
 
-//     } catch (err) {
-//         console.error("❌ Fetch error:", err);
-//         res.status(500).send("Failed to fetch document");
-//     }
-// });
+    } catch (err) {
+        console.error("❌ Fetch error:", err);
+        res.status(500).send("Failed to fetch document");
+    }
+});
 
 
 
@@ -650,54 +646,6 @@ const sendEmailWithSigningLink = async (formData, signingLink) => {
 //         });
 //     }
 // });
-
-
-
-app.get("/document/fetch/:docId", async (req, res) => {
-    console.log("📥 Fetch endpoint hit");
-    const { docId } = req.params;
-
-    const docInfo = documentStore[docId];
-    if (!docInfo) {
-        return res.status(404).send("Document not found");
-    }
-
-    if (isLinkExpired(docInfo.createdAt)) {
-        console.log("⚠️ Link expired for docId:", docId);
-        return res
-            .status(403)
-            .send("This standard contract link has expired (3-day duration).");
-    }
-
-    try {
-        // ✅ Always serve the LATEST version
-        const fileToDownload =
-            docInfo.renderedFileName || docInfo.templateFileName;
-
-        if (!fileToDownload) {
-            throw new Error("No file available to fetch");
-        }
-
-        console.log("📄 Fetching file:", fileToDownload);
-
-        const fileBuffer = await downloadDoc(fileToDownload);
-
-        res.setHeader(
-            "Content-Type",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        );
-        res.setHeader("Content-Encoding", "identity");
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Cache-Control", "no-cache");
-
-        res.send(fileBuffer);
-        console.log("✅ Document sent for viewing");
-
-    } catch (err) {
-        console.error("❌ Fetch error:", err.message);
-        res.status(500).send("Failed to fetch document");
-    }
-});
 
 
 app.post('/document/finalize/:docId', async (req, res) => {

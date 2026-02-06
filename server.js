@@ -659,7 +659,15 @@ if (isLinkExpired(docInfo.createdAt)) {
     try {
         console.log("📥 Fetching document for viewing:", req.params.docId);
 
-        const fileBuffer = await downloadDoc(docInfo.fileName);
+       const filePath =
+  docInfo.renderedFileName || docInfo.templateFileName;
+
+if (!filePath) {
+  throw new Error("No document file found for this docId");
+}
+
+const fileBuffer = await downloadDoc(filePath);
+
         const zip = new PizZip(fileBuffer);
 
         const imageModule = new ImageModule(imageOptions);

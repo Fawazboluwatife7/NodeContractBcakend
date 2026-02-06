@@ -952,11 +952,12 @@ docInfo.renderedFileName = renderedName;
             console.log("📝 Only ONE signature recorded. Waiting for other party.");
 
             // ✅ Upload partially signed document (overwrites original)
-            await uploadDoc(
-                signedBuffer,
-                docId, // Same filename - overwrites
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-            );
+          await uploadDoc(
+  signedBuffer,
+  docInfo.renderedFileName,
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+);
+
             console.log("✅ Partially signed document updated in Supabase");
 
             // Update status

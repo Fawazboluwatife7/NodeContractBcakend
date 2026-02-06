@@ -100,8 +100,12 @@ const imageOptions = {
   getImage: (tagValue) => {
     if (!tagValue) return null;
 
-    if (typeof tagValue !== "string") return null;
-  if (!tagValue.startsWith("data:image")) return null;
+//     if (typeof tagValue !== "string") return null;
+//   if (!tagValue.startsWith("data:image")) return null;
+
+if (typeof tagValue === "string" && tagValue.startsWith("{")) {
+    return null;
+  }
 
     const base64 = tagValue.replace(/^data:image\/\w+;base64,/, "");
     return Buffer.from(base64, "base64");

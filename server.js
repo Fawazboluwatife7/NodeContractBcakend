@@ -677,12 +677,10 @@ const fileBuffer = await downloadDoc(filePath);
             paragraphLoop: true,
             linebreaks: true,
             // nullGetter: () => null,
-            nullGetter(part) {
-        if (!part.value) {
-            return "{" + part.raw + "}"; 
-        }
-        return "";
-    }
+            nullGetter() {
+  return "";
+}
+
         });
 
         const signatures = docInfo.signatures || { client: null, company: null };
@@ -787,9 +785,11 @@ app.post('/document/finalize/:docId', async (req, res) => {
         if (docInfo.isUploadedDoc) {
             console.log("📄 Processing uploaded document with signatures");
 
-            const originalBuffer = await downloadDoc(
-  docInfo.templateFileName
-);
+const sourceFile =
+  docInfo.renderedFileName || docInfo.templateFileName;
+
+const originalBuffer = await downloadDoc(sourceFile);
+
             const zip = new PizZip(originalBuffer);
             const imageModule = new ImageModule(imageOptions);
 
@@ -817,6 +817,17 @@ app.post('/document/finalize/:docId', async (req, res) => {
                 type: "nodebuffer",
                 compression: "DEFLATE",
             });
+
+
+            const renderedName = `agreements/${docId}_rendered.docx`;
+
+await uploadDoc(
+  signedBuffer,
+  renderedName,
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+);
+
+docInfo.renderedFileName = renderedName;
 
         } else {
             // ✅ Handle generated documents
